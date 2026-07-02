@@ -1,0 +1,110 @@
+/* ── Base reset ── */
+* { box-sizing: border-box; }
+
+/* ── Cinematic About ── */
+.cinematic-about-row {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 3rem !important;
+}
+.cinematic-image-wrapper {
+  width: min(320px, 70vw) !important;
+  height: auto !important;
+  aspect-ratio: 5/6 !important;
+  flex-shrink: 0 !important;
+}
+.cinematic-text {
+  flex: 1 !important;
+  min-width: 260px !important;
+}
+
+/* ── Jersey Carousel ── */
+.jersey-track-wrap {
+  width: 100% !important;
+  max-width: 840px !important;
+}
+.jersey-track {
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.jersey-slot {
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.6s ease, border-color 0.6s ease;
+}
+.jersey-slot img,
+.jersey-slot .jersey-art {
+  max-width: 100% !important;
+  height: auto !important;
+}
+
+/* ── Projects grid ── */
+.projects-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, 1fr) !important;
+  gap: 2rem !important;
+}
+
+/* ── Experience items ── */
+.experience-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  flex-wrap: wrap !important;
+  gap: 0.5rem !important;
+}
+
+/* ── Skill rows ── */
+.skill-row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: baseline !important;
+  gap: 0.5rem !important;
+}
+
+/* ── Footer contact row ── */
+.hero-contact-row {
+  display: flex !important;
+  justify-content: center !important;
+  gap: 1.5rem !important;
+  flex-wrap: wrap !important;
+  font-size: 0.95rem !important;
+}
+
+/* ── Section header ── */
+.section-header {
+  font-size: clamp(2rem, 4vw, 3rem) !important;
+  font-weight: 700 !important;
+  text-align: center !important;
+  margin-bottom: 3.5rem !important;
+}
+
+/* ── Responsive breakpoints ── */
+@media (max-width: 900px) {
+  .cinematic-about-row {
+    flex-direction: column !important;
+    text-align: center !important;
+  }
+  .cinematic-image-wrapper {
+    width: min(260px, 60vw) !important;
+  }
+  .hero-contact-row {
+    font-size: 0.85rem !important;
+    gap: 1rem !important;
+  }
+}
+
+@media (max-width: 720px) {
+  .projects-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .jersey-track-wrap {
+    max-width: 100% !important;
+  }
+  .cinematic-image-wrapper {
+    width: min(220px, 55vw) !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .cinematic-image-wrapper {
+    width: min(180px, 50vw) !important;
+  }
+}
