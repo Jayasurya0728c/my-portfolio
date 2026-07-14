@@ -756,6 +756,109 @@ const skillGroups = [
   { label: 'Spoken', items: ['English', 'Malayalam', 'Hindi'] },
 ];
 
+// ─── GLASSMORPHISM NAVBAR ──────────────────────────────────────────────────────
+const NAV_ITEMS = [
+  { label: 'Home', href: '#home' },
+  { label: 'About', href: '#about' },
+  { label: 'Projects', href: '#projects' },
+  { label: 'Education', href: '#education' },
+  { label: 'Experience', href: '#experience' },
+  { label: 'Skills', href: '#skills' },
+];
+
+const GlassNavbar = () => {
+  const [active, setActive] = useState('#home');
+  const [scrolled, setScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => {
+      setScrolled(window.scrollY > 40);
+      const sections = NAV_ITEMS.map(n => document.querySelector(n.href)).filter(Boolean);
+      let current = '#home';
+      for (const sec of sections) {
+        if (sec.getBoundingClientRect().top <= 120) current = '#' + sec.id;
+      }
+      setActive(current);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  const handleClick = (e, href) => {
+    e.preventDefault();
+    setMenuOpen(false);
+    const el = document.querySelector(href);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  return (
+    <nav style={{
+      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,
+      padding: scrolled ? '0.6rem 1.5rem' : '1rem 1.5rem',
+      background: scrolled ? 'rgba(10, 10, 15, 0.55)' : 'rgba(10, 10, 15, 0.25)',
+      backdropFilter: 'blur(20px) saturate(1.6)',
+      WebkitBackdropFilter: 'blur(20px) saturate(1.6)',
+      borderBottom: scrolled ? '1px solid rgba(255,255,255,0.08)' : '1px solid transparent',
+      transition: 'all 0.35s ease',
+    }}>
+      <style>{`
+        .glass-nav-link {
+          position: relative; color: #a1a1aa; text-decoration: none;
+          font-size: 0.88rem; font-weight: 600; letter-spacing: 0.3px;
+          padding: 0.4rem 0.85rem; border-radius: 8px;
+          transition: color 0.25s ease, background 0.25s ease;
+        }
+        .glass-nav-link:hover { color: #fff; background: rgba(255,255,255,0.06); }
+        .glass-nav-link.active { color: #fff; background: rgba(255,255,255,0.1); }
+        .glass-nav-link.active::after {
+          content: ''; position: absolute; bottom: -2px; left: 25%; right: 25%;
+          height: 2px; border-radius: 2px;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent);
+        }
+        .nav-hamburger {
+          display: none; background: none; border: none; color: #a1a1aa;
+          font-size: 1.5rem; cursor: pointer; padding: 0.25rem;
+        }
+        @media (max-width: 640px) {
+          .nav-links-desktop { display: none !important; }
+          .nav-hamburger { display: block !important; }
+        }
+        .nav-mobile-menu {
+          position: absolute; top: 100%; left: 0; right: 0;
+          background: rgba(10, 10, 15, 0.85); backdropFilter: blur(20px);
+          border-bottom: 1px solid rgba(255,255,255,0.08);
+          display: flex; flex-direction: column; padding: 0.5rem 1rem;
+        }
+      `}</style>
+      <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <a href="#home" onClick={(e) => handleClick(e, '#home')} style={{ textDecoration: 'none', color: '#fff', fontWeight: 800, fontSize: '1.15rem', letterSpacing: '-0.5px' }}>
+          JC<span style={{ color: '#71717a', fontWeight: 400 }}>.dev</span>
+        </a>
+        <div className="nav-links-desktop" style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+          {NAV_ITEMS.map(n => (
+            <a key={n.href} href={n.href} className={`glass-nav-link${active === n.href ? ' active' : ''}`} onClick={(e) => handleClick(e, n.href)}>
+              {n.label}
+            </a>
+          ))}
+        </div>
+        <button className="nav-hamburger" onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle menu">
+          {menuOpen ? '✕' : '☰'}
+        </button>
+      </div>
+      {menuOpen && (
+        <div className="nav-mobile-menu">
+          {NAV_ITEMS.map(n => (
+            <a key={n.href} href={n.href} className={`glass-nav-link${active === n.href ? ' active' : ''}`} onClick={(e) => handleClick(e, n.href)} style={{ padding: '0.7rem 0.85rem' }}>
+              {n.label}
+            </a>
+          ))}
+        </div>
+      )}
+    </nav>
+  );
+};
+
 // ─── PORTFOLIO ────────────────────────────────────────────────────────────────
 export default function Portfolio() {
   const [showIntro, setShowIntro] = useState(true);
@@ -772,15 +875,18 @@ export default function Portfolio() {
           />
         )}
       </AnimatePresence>
+      {!showIntro && <GlassNavbar />}
       <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", background: 'transparent', color: '#fff', minHeight: '100vh', overflowX: 'hidden' }}>
         <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
-        * { box-sizing: border-box; }
+        * { box-sizing: border-box; scroll-behavior: smooth; }
+        html { scroll-padding-top: 80px; }
         @media (max-width: 720px) { .projects-grid { grid-template-columns: 1fr !important; } }
       `}</style>
 
         {/* ── HERO ── */}
-        <section style={{ minHeight: '92vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4rem 1.5rem' }}>
+        {/* ── HERO ── */}
+        <section id="home" style={{ minHeight: '92vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4rem 1.5rem' }}>
           <div style={{ maxWidth: '780px', width: '100%' }}>
             <TiltCard style={{ padding: 'clamp(2.5rem, 6vw, 5rem)', textAlign: 'center' }}>
               <span style={{ display: 'inline-block', padding: '0.4rem 1.2rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#a1a1aa', borderRadius: '100px', fontSize: '0.85rem', fontWeight: 600, marginBottom: '2rem', letterSpacing: '0.5px' }}>
@@ -802,12 +908,14 @@ export default function Portfolio() {
         </section>
 
         {/* ── CINEMATIC ABOUT ── */}
-        <CinematicAbout photoSrc={cjImage} />
+        <div id="about">
+          <CinematicAbout photoSrc={cjImage} />
+        </div>
 
         <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 1.5rem' }}>
 
           {/* ── PROJECTS ── */}
-          <section style={{ padding: '2rem 0 6rem' }}>
+          <section id="projects" style={{ padding: '2rem 0 6rem' }}>
             <SectionHeader>Featured projects</SectionHeader>
             <div className="projects-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '2rem' }}>
               {projects.map((p) => (
@@ -827,7 +935,7 @@ export default function Portfolio() {
           </section>
 
           {/* ── EDUCATION ── */}
-          <section style={{ padding: '2rem 0 2rem' }}>
+          <section id="education" style={{ padding: '2rem 0 2rem' }}>
             <SectionHeader>Education</SectionHeader>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               {education.map((e) => (
@@ -843,7 +951,7 @@ export default function Portfolio() {
           </section>
 
           {/* ── EXPERIENCE ── */}
-          <section style={{ padding: '2rem 0 6rem' }}>
+          <section id="experience" style={{ padding: '2rem 0 6rem' }}>
             <SectionHeader>Experience</SectionHeader>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               {experience.map((e) => (
@@ -859,7 +967,7 @@ export default function Portfolio() {
           </section>
 
           {/* ── SKILLS ── */}
-          <section style={{ padding: '2rem 0 8rem' }}>
+          <section id="skills" style={{ padding: '2rem 0 8rem' }}>
             <SectionHeader>Skills</SectionHeader>
             <TiltCard style={{ padding: 'clamp(2rem, 4vw, 3rem)' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
