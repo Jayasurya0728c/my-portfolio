@@ -1,14 +1,13 @@
-// Live Cloud Synchronization Engine for multi-device portfolio sync
-const CLOUD_OBJECT_ID = 'ff8081819f7e10ae019fae73db4e44a4';
-const CLOUD_URL = `https://api.restful-api.dev/objects/${CLOUD_OBJECT_ID}`;
+const LATEST_JSON_URL_KEY = 'portfolio_latest_cloud_json_url';
 
 export const fetchCloudPortfolioData = async () => {
   try {
-    const res = await fetch(CLOUD_URL);
-    if (res.ok) {
-      const json = await res.json();
-      if (json && json.data && json.data.portfolioData) {
-        return json.data.portfolioData;
+    const cloudUrl = localStorage.getItem(LATEST_JSON_URL_KEY);
+    if (cloudUrl && cloudUrl.startsWith('http')) {
+      const res = await fetch(cloudUrl);
+      if (res.ok) {
+        const json = await res.json();
+        if (json && json.projects) return json;
       }
     }
   } catch (err) {
@@ -19,19 +18,16 @@ export const fetchCloudPortfolioData = async () => {
 
 export const saveCloudPortfolioData = async (data) => {
   try {
-    const res = await fetch(CLOUD_URL, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: 'Jayasurya_Portfolio_Live_Data',
-        data: { portfolioData: data, updatedAt: new Date().toISOString() }
-      })
-    });
-    return res.ok;
+    const jsonBlob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+    const cloudUrl = await uploadMediaToCloud(jsonBlob, 'portfolio.json');
+    if (cloudUrl) {
+      localStorage.setItem(LATEST_JSON_URL_KEY, cloudUrl);
+      return true;
+    }
   } catch (err) {
-    console.error('Cloud sync error:', err);
-    return false;
+    console.error('Cloud JSON sync error:', err);
   }
+  return false;
 };
 
 // Upload media blob or file directly to global permanent CDN
