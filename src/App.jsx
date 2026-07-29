@@ -827,9 +827,7 @@ const GlassNavbar = ({ onOpenAdmin }) => {
   const [showAdminBtn, setShowAdminBtn] = useState(false);
 
   useEffect(() => {
-    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const hasAdminHash = window.location.hash === '#admin' || window.location.search.includes('admin=true');
-    setShowAdminBtn(isLocal || hasAdminHash || import.meta.env.DEV);
+    setShowAdminBtn(true);
   }, []);
 
   useEffect(() => {
