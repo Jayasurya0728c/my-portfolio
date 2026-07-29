@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { compressVideoFile } from './videoCompressor';
+import { uploadMediaToCloud } from './cloudSync';
 
 export default function AdminDashboard({ portfolioData, onSave, onClose }) {
   const [activeTab, setActiveTab] = useState('projects');
@@ -35,32 +36,46 @@ export default function AdminDashboard({ portfolioData, onSave, onClose }) {
 
     if (file.type.startsWith('video/')) {
       try {
-        setCompressionProgress({ label, progress: 0 });
-        const compressedDataUrl = await compressVideoFile(file, (pct) => {
-          setCompressionProgress({ label, progress: pct });
+        setCompressionProgress({ label: `${label} (Compressing)`, progress: 10 });
+        const { dataUrl, blob } = await compressVideoFile(file, (pct) => {
+          setCompressionProgress({ label: `${label} (Compressing)`, progress: Math.min(80, Math.round(pct * 0.8)) });
         });
-        setProjectForm(prev => ({ ...prev, [targetField]: compressedDataUrl }));
+
+        setCompressionProgress({ label: `${label} (Uploading to Global CDN)`, progress: 85 });
+        const cdnUrl = await uploadMediaToCloud(blob || file, file.name || 'video.webm');
+        const finalUrl = cdnUrl || dataUrl;
+
+        setProjectForm(prev => ({ ...prev, [targetField]: finalUrl }));
         setCompressionProgress(null);
-        showToast(`⚡ ${label} compressed & audio removed!`);
+        showToast(`⚡ ${label} uploaded to Global CDN & synced for all devices!`);
       } catch (err) {
-        console.error('Video compression error, using raw upload:', err);
+        console.error('Video processing error, uploading raw to CDN:', err);
+        setCompressionProgress({ label: `${label} (Uploading)`, progress: 90 });
+        const cdnUrl = await uploadMediaToCloud(file, file.name || 'video.mp4');
+        if (cdnUrl) {
+          setProjectForm(prev => ({ ...prev, [targetField]: cdnUrl }));
+          showToast(`🎬 ${label} uploaded to Global CDN!`);
+        }
         setCompressionProgress(null);
+      }
+    } else {
+      setCompressionProgress({ label: `${label} (Uploading Image)`, progress: 50 });
+      const cdnUrl = await uploadMediaToCloud(file, file.name || 'image.jpg');
+      setCompressionProgress(null);
+      if (cdnUrl) {
+        setProjectForm(prev => ({ ...prev, [targetField]: cdnUrl }));
+        showToast(`🖼️ ${label} uploaded to Global CDN!`);
+      } else {
         const reader = new FileReader();
         reader.onload = (e) => {
           setProjectForm(prev => ({ ...prev, [targetField]: e.target.result }));
-          showToast(`🎬 ${label} uploaded!`);
+          showToast(`🖼️ ${label} screenshot updated!`);
         };
         reader.readAsDataURL(file);
       }
-    } else {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setProjectForm(prev => ({ ...prev, [targetField]: e.target.result }));
-        showToast(`🖼️ ${label} screenshot uploaded!`);
-      };
-      reader.readAsDataURL(file);
     }
   };
+
 
 
   // Helper to persist updated data immediately to parent and localStorage

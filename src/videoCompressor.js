@@ -61,7 +61,7 @@ export const compressVideoFile = (file, onProgress) => {
           URL.revokeObjectURL(fileUrl);
           const compressedBlob = new Blob(chunks, { type: mimeType });
           const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result);
+          reader.onloadend = () => resolve({ dataUrl: reader.result, blob: compressedBlob });
           reader.onerror = (err) => reject(err);
           reader.readAsDataURL(compressedBlob);
         };

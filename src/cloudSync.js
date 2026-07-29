@@ -33,3 +33,28 @@ export const saveCloudPortfolioData = async (data) => {
     return false;
   }
 };
+
+// Upload media blob or file directly to global permanent CDN
+export const uploadMediaToCloud = async (fileOrBlob, fileName = 'media.mp4') => {
+  try {
+    const formData = new FormData();
+    formData.append('reqtype', 'fileupload');
+    formData.append('fileToUpload', fileOrBlob, fileName);
+
+    const res = await fetch('https://catbox.moe/user/api.php', {
+      method: 'POST',
+      body: formData
+    });
+
+    if (res.ok) {
+      const url = await res.text();
+      if (url && url.startsWith('http')) {
+        return url.trim();
+      }
+    }
+  } catch (err) {
+    console.error('Global CDN upload error:', err);
+  }
+  return null;
+};
+
