@@ -36,20 +36,37 @@ export default function AdminDashboard({ portfolioData, onSave, onClose }) {
 
     if (file.type.startsWith('video/')) {
       try {
-        setCompressionProgress({ label: `${label} (Uploading to Global CDN for iOS & Android)`, progress: 50 });
+        setCompressionProgress({ label: `${label} (Uploading to Global CDN for Mobile & Desktop)`, progress: 40 });
         
-        // Upload native MP4 video file directly to global CDN for 100% universal mobile playback
+        // Upload native MP4 video file directly to global CDN
         const cdnUrl = await uploadMediaToCloud(file, file.name || 'video.mp4');
         
         if (cdnUrl) {
-          setProjectForm(prev => ({ ...prev, [targetField]: cdnUrl }));
+          setProjectForm(prev => {
+            const updatedForm = { ...prev, [targetField]: cdnUrl };
+            if (editingProjectIndex !== null && editingProjectIndex !== 'new') {
+              const tagsArray = (updatedForm.tags || '')
+                .split(',')
+                .map(t => t.trim())
+                .filter(t => t.length > 0);
+              const updatedProject = {
+                ...updatedForm,
+                carousel: updatedForm.type === 'carousel',
+                tags: tagsArray
+              };
+              const newProjects = [...formData.projects];
+              newProjects[editingProjectIndex] = updatedProject;
+              const updatedFullData = { ...formData, projects: newProjects };
+              saveCategoryData(updatedFullData, `⚡ ${label} uploaded to Global CDN & synced globally!`);
+            }
+            return updatedForm;
+          });
           setCompressionProgress(null);
-          showToast(`⚡ ${label} uploaded to Global CDN & ready for all mobile devices!`);
         } else {
           const reader = new FileReader();
           reader.onload = (e) => {
             setProjectForm(prev => ({ ...prev, [targetField]: e.target.result }));
-            showToast(`🎬 ${label} uploaded!`);
+            showToast(`🎬 ${label} uploaded! Click "Save Project" below.`);
           };
           reader.readAsDataURL(file);
           setCompressionProgress(null);
@@ -63,13 +80,30 @@ export default function AdminDashboard({ portfolioData, onSave, onClose }) {
       const cdnUrl = await uploadMediaToCloud(file, file.name || 'image.jpg');
       setCompressionProgress(null);
       if (cdnUrl) {
-        setProjectForm(prev => ({ ...prev, [targetField]: cdnUrl }));
-        showToast(`🖼️ ${label} uploaded to Global CDN!`);
+        setProjectForm(prev => {
+          const updatedForm = { ...prev, [targetField]: cdnUrl };
+          if (editingProjectIndex !== null && editingProjectIndex !== 'new') {
+            const tagsArray = (updatedForm.tags || '')
+              .split(',')
+              .map(t => t.trim())
+              .filter(t => t.length > 0);
+            const updatedProject = {
+              ...updatedForm,
+              carousel: updatedForm.type === 'carousel',
+              tags: tagsArray
+            };
+            const newProjects = [...formData.projects];
+            newProjects[editingProjectIndex] = updatedProject;
+            const updatedFullData = { ...formData, projects: newProjects };
+            saveCategoryData(updatedFullData, `🖼️ ${label} uploaded to Global CDN & synced globally!`);
+          }
+          return updatedForm;
+        });
       } else {
         const reader = new FileReader();
         reader.onload = (e) => {
           setProjectForm(prev => ({ ...prev, [targetField]: e.target.result }));
-          showToast(`🖼️ ${label} screenshot updated!`);
+          showToast(`🖼️ ${label} screenshot updated! Click "Save Project" below.`);
         };
         reader.readAsDataURL(file);
       }
