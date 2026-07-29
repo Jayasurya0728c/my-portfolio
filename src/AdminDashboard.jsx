@@ -514,8 +514,23 @@ export default function AdminDashboard({ portfolioData, onSave, onClose }) {
                         className="admin-input"
                         value={projectForm.videoSrc}
                         onChange={e => setProjectForm({ ...projectForm, videoSrc: e.target.value })}
-                        placeholder="e.g. /videos/demo.mp4"
+                        placeholder="e.g. https://files.catbox.moe/demo.mp4"
                       />
+                      {projectForm.videoSrc && projectForm.videoSrc.startsWith('http') && (
+                        <div style={{ marginTop: '-0.5rem', marginBottom: '0.8rem', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '0.78rem', padding: '0.15rem 0.5rem', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', fontWeight: 600 }}>
+                            🟢 Global CDN Stream Active
+                          </span>
+                          <a
+                            href={projectForm.videoSrc}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ fontSize: '0.78rem', color: '#60a5fa', fontWeight: 600, textDecoration: 'underline' }}
+                          >
+                            🔗 Test Video Link in New Tab
+                          </a>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
