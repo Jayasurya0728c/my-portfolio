@@ -147,8 +147,10 @@ export const LaptopFrame = ({ videoSrc, imageSrc, title, fallbackContent }) => {
                   src={videoSrc}
                   autoPlay
                   loop
-                  muted={isMuted}
+                  muted
                   playsInline
+                  webkit-playsinline="true"
+                  preload="auto"
                 />
                 <div className="device-video-overlay">
                   <button className="video-control-btn" onClick={togglePlay}>
@@ -301,8 +303,10 @@ export const PhoneFrame = ({ videoSrc, imageSrc, title, fallbackContent }) => {
                 src={videoSrc}
                 autoPlay
                 loop
-                muted={isMuted}
+                muted
                 playsInline
+                webkit-playsinline="true"
+                preload="auto"
               />
               <div className="device-video-overlay">
                 <button className="video-control-btn" onClick={togglePlay}>

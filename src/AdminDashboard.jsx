@@ -36,26 +36,26 @@ export default function AdminDashboard({ portfolioData, onSave, onClose }) {
 
     if (file.type.startsWith('video/')) {
       try {
-        setCompressionProgress({ label: `${label} (Compressing)`, progress: 10 });
-        const { dataUrl, blob } = await compressVideoFile(file, (pct) => {
-          setCompressionProgress({ label: `${label} (Compressing)`, progress: Math.min(80, Math.round(pct * 0.8)) });
-        });
-
-        setCompressionProgress({ label: `${label} (Uploading to Global CDN)`, progress: 85 });
-        const cdnUrl = await uploadMediaToCloud(blob || file, file.name || 'video.webm');
-        const finalUrl = cdnUrl || dataUrl;
-
-        setProjectForm(prev => ({ ...prev, [targetField]: finalUrl }));
-        setCompressionProgress(null);
-        showToast(`⚡ ${label} uploaded to Global CDN & synced for all devices!`);
-      } catch (err) {
-        console.error('Video processing error, uploading raw to CDN:', err);
-        setCompressionProgress({ label: `${label} (Uploading)`, progress: 90 });
+        setCompressionProgress({ label: `${label} (Uploading to Global CDN for iOS & Android)`, progress: 50 });
+        
+        // Upload native MP4 video file directly to global CDN for 100% universal mobile playback
         const cdnUrl = await uploadMediaToCloud(file, file.name || 'video.mp4');
+        
         if (cdnUrl) {
           setProjectForm(prev => ({ ...prev, [targetField]: cdnUrl }));
-          showToast(`🎬 ${label} uploaded to Global CDN!`);
+          setCompressionProgress(null);
+          showToast(`⚡ ${label} uploaded to Global CDN & ready for all mobile devices!`);
+        } else {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            setProjectForm(prev => ({ ...prev, [targetField]: e.target.result }));
+            showToast(`🎬 ${label} uploaded!`);
+          };
+          reader.readAsDataURL(file);
+          setCompressionProgress(null);
         }
+      } catch (err) {
+        console.error('Video processing error:', err);
         setCompressionProgress(null);
       }
     } else {
