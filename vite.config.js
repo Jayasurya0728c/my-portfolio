@@ -31,9 +31,13 @@ export default defineConfig({
             });
           } else if (req.method === 'POST' && req.url === '/api/upload-local') {
             const fileNameHeader = req.headers['file-name'] || 'file.png';
+            const ext = path.extname(fileNameHeader).toLowerCase();
             const cleanName = path.basename(fileNameHeader).replace(/[^a-zA-Z0-9.-]/g, '_');
             const uniqueName = `${Date.now()}_${cleanName}`;
-            const uploadDir = path.resolve(__dirname, 'public/screenshots');
+            
+            // Save PDFs to public/ root, other files to public/screenshots
+            const subDir = ext === '.pdf' ? '' : 'screenshots';
+            const uploadDir = path.resolve(__dirname, 'public', subDir);
             
             if (!fs.existsSync(uploadDir)) {
               fs.mkdirSync(uploadDir, { recursive: true });
@@ -46,7 +50,8 @@ export default defineConfig({
             
             writeStream.on('finish', () => {
               res.writeHead(200, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ url: `/screenshots/${uniqueName}` }));
+              const urlPath = ext === '.pdf' ? `/${uniqueName}` : `/screenshots/${uniqueName}`;
+              res.end(JSON.stringify({ url: urlPath }));
             });
             
             writeStream.on('error', (err) => {

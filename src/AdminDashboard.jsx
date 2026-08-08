@@ -185,7 +185,31 @@ export default function AdminDashboard({ portfolioData, onSave, onClose }) {
     }
   };
 
-
+  const handleResumeUpload = async (file) => {
+    if (!file) return;
+    setCompressionProgress({ label: 'Resume PDF (Uploading - 0% complete)', progress: 0 });
+    try {
+      const cdnUrl = await uploadMediaToCloud(file, file.name || 'resume.pdf', (percent) => {
+        setCompressionProgress({
+          label: `Resume PDF (Uploading - ${percent}% complete)`,
+          progress: percent
+        });
+      });
+      setCompressionProgress(null);
+      if (cdnUrl) {
+        const updated = {
+          ...formData,
+          hero: { ...formData.hero, resumeUrl: cdnUrl }
+        };
+        saveCategoryData(updated, '📄 Resume PDF uploaded successfully!');
+      } else {
+        showToast('❌ Resume PDF upload failed. Please verify your connection.');
+      }
+    } catch (err) {
+      console.error('Resume upload error:', err);
+      setCompressionProgress(null);
+    }
+  };
 
   // Helper to persist updated data immediately to parent and localStorage
   const saveCategoryData = (updatedData, message) => {
@@ -1133,12 +1157,28 @@ export default function AdminDashboard({ portfolioData, onSave, onClose }) {
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '0.4rem' }}>Resume PDF Link / File Path</label>
-                <input
-                  className="admin-input"
-                  value={formData.hero?.resumeUrl || ''}
-                  onChange={e => handleHeroFieldChange('resumeUrl', e.target.value)}
-                  placeholder="e.g. /resume.pdf"
-                />
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <input
+                    className="admin-input"
+                    value={formData.hero?.resumeUrl || ''}
+                    onChange={e => handleHeroFieldChange('resumeUrl', e.target.value)}
+                    placeholder="e.g. /resume.pdf"
+                    style={{ flex: 1 }}
+                  />
+                  <label className="admin-btn admin-btn-secondary" style={{ padding: '0.65rem 1rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', margin: 0, whiteSpace: 'nowrap' }}>
+                    📁 Upload PDF
+                    <input
+                      type="file"
+                      accept=".pdf"
+                      onChange={e => {
+                        if (e.target.files && e.target.files[0]) {
+                          handleResumeUpload(e.target.files[0]);
+                        }
+                      }}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+                </div>
               </div>
             </div>
 

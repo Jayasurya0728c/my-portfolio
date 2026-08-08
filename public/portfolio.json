@@ -22,8 +22,8 @@
   },
   "projects": [
     {
-      "title": "Sports Jersey E-Commerce",
-      "subtitle": "Full-stack sports gear storefront",
+      "title": "MIYAKA COUTURE (E-Commerce Store)",
+      "subtitle": "Full-stack store",
       "desc": "A full-stack e-commerce application featuring a dynamic product catalog, secure user authentication, shopping cart, and order processing. The interactive frontend includes an animated featured collection carousel fully integrated with a robust backend API and database.",
       "type": "website",
       "videoSrc": "https://files.catbox.moe/9kd0o8.mp4",
@@ -43,7 +43,16 @@
       ],
       "wide": true,
       "carousel": false,
-      "screenshots": [],
+      "screenshots": [
+        "/screenshots/1786190276448_Screenshot_2026-08-08_172302.png",
+        "/screenshots/1786190276509_Screenshot_2026-08-08_172330.png",
+        "/screenshots/1786190276815_Screenshot_2026-08-08_172340.png",
+        "/screenshots/1786190276960_Screenshot_2026-08-08_172358.png",
+        "/screenshots/1786190277334_Screenshot_2026-08-08_172424.png",
+        "/screenshots/1786190277447_Screenshot_2026-08-08_172452.png",
+        "/screenshots/1786190277600_Screenshot_2026-08-08_172509.png",
+        "/screenshots/1786190412981_Screenshot_2026-08-08_172945.png"
+      ],
       "appScreenshots": []
     },
     {
