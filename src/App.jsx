@@ -1851,7 +1851,7 @@ export default function Portfolio() {
           onMouseLeave={() => !isMobile && setIsFabOpen(false)}
           style={{
             position: 'fixed',
-            bottom: isMobile ? '16px' : '30px',
+            bottom: isMobile ? '80px' : '30px',
             right: isMobile ? '16px' : '30px',
             zIndex: 9999,
             display: 'flex',
