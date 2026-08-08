@@ -1240,6 +1240,14 @@ export default function Portfolio() {
   const handleSaveData = (newData) => {
     setPortfolioData(newData);
     savePortfolioDataDB(newData);
+    // In dev / localhost environment, automatically save updates to public/portfolio.json
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      fetch('/api/save-local', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newData)
+      }).catch(err => console.warn('Vite local data sync failed:', err));
+    }
   };
 
   const handleResetData = () => {
