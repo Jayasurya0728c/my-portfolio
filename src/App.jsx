@@ -1207,19 +1207,27 @@ export default function Portfolio() {
   }, [showIntro]);
 
   // Dynamic portfolio data from IndexedDB / localStorage or default
+  // Dynamic portfolio data from IndexedDB / localStorage or default
   const [portfolioData, setPortfolioData] = useState(() => {
-    const saved = localStorage.getItem('portfolio_cms_data');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (err) {
-        console.error('Failed to parse saved portfolio data', err);
+    const isAdminMode = typeof window !== 'undefined' && (
+      localStorage.getItem('portfolio_admin_logged') === 'true' || 
+      window.location.hash.includes('admin') || 
+      window.location.hash.includes('edit')
+    );
+    if (isAdminMode) {
+      const saved = localStorage.getItem('portfolio_cms_data');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (err) {
+          console.error('Failed to parse saved portfolio data', err);
+        }
       }
     }
     return DEFAULT_PORTFOLIO_DATA;
   });
 
-  // Load database on startup (fetches public/portfolio.json first, falls back to IndexedDB/localStorage)
+  // Load database on startup (fetches public/portfolio.json first, falls back to IndexedDB/localStorage for admin)
   useEffect(() => {
     fetch('./portfolio.json')
       .then(res => {
@@ -1228,21 +1236,29 @@ export default function Portfolio() {
       })
       .then(data => {
         if (data && data.projects) {
-          // If there are local database overrides, prioritize them (for admin editing)
-          loadPortfolioDataDB().then((dbData) => {
-            if (dbData) {
-              setPortfolioData(dbData);
-            } else {
-              const localSaved = localStorage.getItem('portfolio_cms_data');
-              if (localSaved) {
-                try {
-                  setPortfolioData(JSON.parse(localSaved));
-                  return;
-                } catch (e) {}
+          const isAdminMode = localStorage.getItem('portfolio_admin_logged') === 'true' || 
+                              window.location.hash.includes('admin') || 
+                              window.location.hash.includes('edit');
+          if (isAdminMode) {
+            // Prioritize local edits and drafts for the admin
+            loadPortfolioDataDB().then((dbData) => {
+              if (dbData) {
+                setPortfolioData(dbData);
+              } else {
+                const localSaved = localStorage.getItem('portfolio_cms_data');
+                if (localSaved) {
+                  try {
+                    setPortfolioData(JSON.parse(localSaved));
+                    return;
+                  } catch (e) {}
+                }
+                setPortfolioData(data);
               }
-              setPortfolioData(data);
-            }
-          });
+            });
+          } else {
+            // Force public JSON database for all normal visitors
+            setPortfolioData(data);
+          }
         }
       })
       .catch(err => {
@@ -1258,6 +1274,7 @@ export default function Portfolio() {
   const handleOpenAdmin = () => {
     const pin = window.prompt('🔒 Enter Admin Passcode:');
     if (pin === '7593' || pin === '1234' || pin === 'admin') {
+      localStorage.setItem('portfolio_admin_logged', 'true');
       setIsAdminOpen(true);
     } else if (pin !== null) {
       alert('❌ Incorrect passcode. Access denied.');
