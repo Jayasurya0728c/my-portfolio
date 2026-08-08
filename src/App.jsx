@@ -1651,12 +1651,12 @@ export default function Portfolio() {
                     <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '1.2rem' }}>
                       {p.githubUrl && (
                         <a href={p.githubUrl} target="_blank" rel="noopener noreferrer" className="project-action-link">
-                          💻 GitHub Repo
+                          💻 {p.githubLabel || 'GitHub Repo'}
                         </a>
                       )}
                       {p.liveUrl && (
                         <a href={p.liveUrl} target="_blank" rel="noopener noreferrer" className="project-action-link">
-                          🌐 Live Demo
+                          🌐 {p.liveLabel || 'Live Demo'}
                         </a>
                       )}
                     </div>

@@ -33,7 +33,7 @@
       "githubUrl": "",
       "liveUrl": "https://miyakacouture.in",
       "githubLabel": "",
-      "liveLabel": "Live now at miyakacouture.in",
+      "liveLabel": "Live now",
       "tags": [
         "React",
         "Django",
@@ -42,7 +42,9 @@
         "REST APIs"
       ],
       "wide": true,
-      "carousel": false
+      "carousel": false,
+      "screenshots": [],
+      "appScreenshots": []
     },
     {
       "title": "SmartHire",
