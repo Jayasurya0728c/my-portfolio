@@ -1057,6 +1057,16 @@ export default function Portfolio() {
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
+    // Prevent touchpad/trackpad back swipe gesture by using a non-passive wheel event listener
+    const preventBackSwipe = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      handleUserInteraction();
+      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      offsetRef.current += delta * 1.5;
+    };
+    container.addEventListener('wheel', preventBackSwipe, { passive: false });
+
     // Image sizing — must match JSX inline styles (width only, height is auto)
     const imgW = isMobile ? 280 : 480;
     const gap = isMobile ? 24 : 40;
@@ -1117,13 +1127,13 @@ export default function Portfolio() {
 
         if (isHovered) {
           img.style.transition = 'filter 0.3s, box-shadow 0.3s';
-          img.style.transform = `translateX(${x}px) perspective(900px) rotateY(0deg) translateZ(60px) scale(1.15)`;
+          img.style.transform = `translateX(${x}px) translateY(-50%) perspective(900px) rotateY(0deg) translateZ(60px) scale(1.15)`;
           img.style.zIndex = '100';
           img.style.boxShadow = '0 0 80px rgba(245, 180, 0, 0.35), 0 30px 60px rgba(0,0,0,0.7)';
           img.style.filter = 'brightness(1.15) blur(0px)';
         } else {
           img.style.transition = 'filter 0.3s, box-shadow 0.3s';
-          img.style.transform = `translateX(${x}px) perspective(900px) rotateY(${rotateY}deg) translateZ(${translateZ}px) scale(${scaleVal})`;
+          img.style.transform = `translateX(${x}px) translateY(-50%) perspective(900px) rotateY(${rotateY}deg) translateZ(${translateZ}px) scale(${scaleVal})`;
           img.style.zIndex = String(Math.round(100 - absRatio * 50));
           img.style.boxShadow = `0 25px 50px rgba(0,0,0,0.6), 0 0 ${30 - absRatio * 20}px rgba(245,180,0,${0.08 - absRatio * 0.06})`;
           img.style.filter = `brightness(${brightness}) blur(${blur}px)`;
@@ -1142,6 +1152,7 @@ export default function Portfolio() {
     animationId = requestAnimationFrame(scrollStep);
     return () => {
       cancelAnimationFrame(animationId);
+      container.removeEventListener('wheel', preventBackSwipe);
       document.body.style.overflow = prevOverflow || '';
       if (resumeTimeoutRef.current) {
         clearTimeout(resumeTimeoutRef.current);
@@ -1995,14 +2006,6 @@ export default function Portfolio() {
                 onTouchStart={handleDragStart}
                 onTouchMove={handleDragMove}
                 onTouchEnd={handleDragEnd}
-                onWheel={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleUserInteraction();
-                  // Use horizontal delta if available, fall back to vertical
-                  const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-                  offsetRef.current += delta * 1.5;
-                }}
                 style={{
                   position: 'relative',
                   width: '100%',
