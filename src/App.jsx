@@ -1057,8 +1057,8 @@ export default function Portfolio() {
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
-    // Image sizing — must match JSX inline styles
-    const imgW = isMobile ? 240 : 360;
+    // Image sizing — must match JSX inline styles (width only, height is auto)
+    const imgW = isMobile ? 280 : 480;
     const gap = isMobile ? 24 : 40;
     const itemStep = imgW + gap;
     const totalItems = activeFlowScreenshots.length;
@@ -2006,7 +2006,7 @@ export default function Portfolio() {
                 style={{
                   position: 'relative',
                   width: '100%',
-                  height: isMobile ? '300px' : '420px',
+                  height: isMobile ? '340px' : '460px',
                   overflow: 'hidden',
                   cursor: 'grab',
                   userSelect: 'none',
@@ -2029,9 +2029,9 @@ export default function Portfolio() {
                       position: 'absolute',
                       left: 0,
                       top: '50%',
-                      marginTop: isMobile ? '-115px' : '-155px',
-                      width: isMobile ? '240px' : '360px',
-                      height: isMobile ? '230px' : '310px',
+                      transform: 'translateY(-50%)',
+                      width: isMobile ? '280px' : '480px',
+                      maxHeight: isMobile ? '300px' : '420px',
                       borderRadius: '14px',
                       objectFit: 'contain',
                       cursor: 'zoom-in',
