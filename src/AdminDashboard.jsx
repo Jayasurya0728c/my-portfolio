@@ -21,7 +21,9 @@ export default function AdminDashboard({ portfolioData, onSave, onClose }) {
     liveUrl: '',
     tags: '',
     wide: false,
-    carousel: false
+    carousel: false,
+    screenshots: [],
+    appScreenshots: []
   });
 
   const [notification, setNotification] = useState('');
@@ -35,11 +37,22 @@ export default function AdminDashboard({ portfolioData, onSave, onClose }) {
     if (!file) return;
 
     if (file.type.startsWith('video/')) {
+      const sizeMb = file.size / 1024 / 1024;
+      if (sizeMb > 4.19) {
+        showToast(`❌ Video is too large (${sizeMb.toFixed(1)}MB). Please compress it to under 4MB (MP4 format) and try again.`);
+        return;
+      }
+
       try {
-        setCompressionProgress({ label: `${label} (Uploading to Global CDN for Mobile & Desktop)`, progress: 40 });
+        setCompressionProgress({ label: `${label} (Uploading directly to Global CDN - 0% complete)`, progress: 0 });
         
         // Upload native MP4 video file directly to global CDN
-        const cdnUrl = await uploadMediaToCloud(file, file.name || 'video.mp4');
+        const cdnUrl = await uploadMediaToCloud(file, file.name || 'video.mp4', (percent) => {
+          setCompressionProgress({
+            label: `${label} (Uploading directly to Global CDN - ${percent}% complete)`,
+            progress: percent
+          });
+        });
         
         if (cdnUrl) {
           setProjectForm(prev => {
@@ -63,21 +76,21 @@ export default function AdminDashboard({ portfolioData, onSave, onClose }) {
           });
           setCompressionProgress(null);
         } else {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            setProjectForm(prev => ({ ...prev, [targetField]: e.target.result }));
-            showToast(`🎬 ${label} uploaded! Click "Save Project" below.`);
-          };
-          reader.readAsDataURL(file);
+          showToast(`❌ ${label} upload failed. Please verify your connection.`);
           setCompressionProgress(null);
         }
       } catch (err) {
-        console.error('Video processing error:', err);
+        console.error('Video upload error:', err);
         setCompressionProgress(null);
       }
     } else {
-      setCompressionProgress({ label: `${label} (Uploading Image)`, progress: 50 });
-      const cdnUrl = await uploadMediaToCloud(file, file.name || 'image.jpg');
+      setCompressionProgress({ label: `${label} (Uploading Image - 0% complete)`, progress: 0 });
+      const cdnUrl = await uploadMediaToCloud(file, file.name || 'image.jpg', (percent) => {
+        setCompressionProgress({
+          label: `${label} (Uploading Image - ${percent}% complete)`,
+          progress: percent
+        });
+      });
       setCompressionProgress(null);
       if (cdnUrl) {
         setProjectForm(prev => {
@@ -110,6 +123,68 @@ export default function AdminDashboard({ portfolioData, onSave, onClose }) {
     }
   };
 
+  const handleScreenshotUpload = async (file, targetField, label) => {
+    if (!file) return;
+    setCompressionProgress({ label: `${label} (Uploading screenshot...)`, progress: 0 });
+    try {
+      const cdnUrl = await uploadMediaToCloud(file, file.name || 'screenshot.jpg', (percent) => {
+        setCompressionProgress({
+          label: `${label} (Uploading screenshot - ${percent}% complete)`,
+          progress: percent
+        });
+      });
+      setCompressionProgress(null);
+      if (cdnUrl) {
+        setProjectForm(prev => {
+          const currentList = Array.isArray(prev[targetField]) ? prev[targetField] : [];
+          const updatedForm = { ...prev, [targetField]: [...currentList, cdnUrl] };
+          showToast(`🖼️ Screenshot added to ${label} gallery!`);
+          return updatedForm;
+        });
+      } else {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setProjectForm(prev => {
+            const currentList = Array.isArray(prev[targetField]) ? prev[targetField] : [];
+            const updatedForm = { ...prev, [targetField]: [...currentList, e.target.result] };
+            showToast(`🖼️ Screenshot added to ${label} gallery locally!`);
+            return updatedForm;
+          });
+        };
+        reader.readAsDataURL(file);
+      }
+    } catch (err) {
+      console.error(err);
+      setCompressionProgress(null);
+    }
+  };
+
+  const handleProfilePhotoUpload = async (file) => {
+    if (!file) return;
+    try {
+      setCompressionProgress({ label: 'Profile Photo (Uploading - 0% complete)', progress: 0 });
+      const cdnUrl = await uploadMediaToCloud(file, file.name || 'profile.jpg', (percent) => {
+        setCompressionProgress({
+          label: `Profile Photo (Uploading - ${percent}% complete)`,
+          progress: percent
+        });
+      });
+      setCompressionProgress(null);
+      if (cdnUrl) {
+        const updated = {
+          ...formData,
+          hero: { ...formData.hero, photoSrc: cdnUrl }
+        };
+        saveCategoryData(updated, '🖼️ Profile photo uploaded to Global CDN & synced globally!');
+      } else {
+        showToast('❌ Profile photo upload failed. Please verify your connection.');
+      }
+    } catch (err) {
+      console.error('Profile photo upload error:', err);
+      setCompressionProgress(null);
+    }
+  };
+
 
 
   // Helper to persist updated data immediately to parent and localStorage
@@ -117,6 +192,82 @@ export default function AdminDashboard({ portfolioData, onSave, onClose }) {
     setFormData(updatedData);
     onSave(updatedData);
     showToast(message || '💾 Saved & updated live!');
+  };
+
+  // Reordering helpers (for projects, skills, education, experience)
+  const moveItemUp = (category, index) => {
+    if (index === 0) return;
+    const list = [...formData[category]];
+    const temp = list[index];
+    list[index] = list[index - 1];
+    list[index - 1] = temp;
+    const updated = { ...formData, [category]: list };
+    saveCategoryData(updated, '🔼 Item moved up!');
+  };
+
+  const moveItemDown = (category, index) => {
+    if (index === formData[category].length - 1) return;
+    const list = [...formData[category]];
+    const temp = list[index];
+    list[index] = list[index + 1];
+    list[index + 1] = temp;
+    const updated = { ...formData, [category]: list };
+    saveCategoryData(updated, '🔽 Item moved down!');
+  };
+
+  // Addition & Deletion helpers
+  const addSkillGroup = () => {
+    const updated = {
+      ...formData,
+      skillGroups: [...(formData.skillGroups || []), { label: 'New Group', items: ['Skill 1'] }]
+    };
+    saveCategoryData(updated, '➕ New skill group added!');
+  };
+
+  const deleteSkillGroup = (index) => {
+    if (window.confirm('Delete this skill group?')) {
+      const updated = {
+        ...formData,
+        skillGroups: formData.skillGroups.filter((_, i) => i !== index)
+      };
+      saveCategoryData(updated, '🗑️ Skill group deleted!');
+    }
+  };
+
+  const addEducationItem = () => {
+    const updated = {
+      ...formData,
+      education: [...(formData.education || []), { role: 'New Degree / Course', org: 'Institution Name', desc: 'Year' }]
+    };
+    saveCategoryData(updated, '➕ New education entry added!');
+  };
+
+  const deleteEducationItem = (index) => {
+    if (window.confirm('Delete this education entry?')) {
+      const updated = {
+        ...formData,
+        education: formData.education.filter((_, i) => i !== index)
+      };
+      saveCategoryData(updated, '🗑️ Education entry deleted!');
+    }
+  };
+
+  const addExperienceItem = () => {
+    const updated = {
+      ...formData,
+      experience: [...(formData.experience || []), { role: 'New Job Role', org: 'Company Name', desc: 'Duration' }]
+    };
+    saveCategoryData(updated, '➕ New experience entry added!');
+  };
+
+  const deleteExperienceItem = (index) => {
+    if (window.confirm('Delete this experience entry?')) {
+      const updated = {
+        ...formData,
+        experience: formData.experience.filter((_, i) => i !== index)
+      };
+      saveCategoryData(updated, '🗑️ Experience entry deleted!');
+    }
   };
 
   // ── HERO SAVE ─────────────────────────────────────────────────────────────
@@ -146,9 +297,13 @@ export default function AdminDashboard({ portfolioData, onSave, onClose }) {
         appImageSrc: p.appImageSrc || '',
         githubUrl: p.githubUrl || '',
         liveUrl: p.liveUrl || '',
+        githubLabel: p.githubLabel || '',
+        liveLabel: p.liveLabel || '',
         tags: Array.isArray(p.tags) ? p.tags.join(', ') : (p.tags || ''),
         wide: !!p.wide,
-        carousel: !!p.carousel
+        carousel: !!p.carousel,
+        screenshots: Array.isArray(p.screenshots) ? p.screenshots : [],
+        appScreenshots: Array.isArray(p.appScreenshots) ? p.appScreenshots : []
       });
       setEditingProjectIndex(index);
     } else {
@@ -163,9 +318,13 @@ export default function AdminDashboard({ portfolioData, onSave, onClose }) {
         appImageSrc: '',
         githubUrl: '',
         liveUrl: '',
+        githubLabel: '',
+        liveLabel: '',
         tags: 'React, Django, Python',
         wide: false,
-        carousel: false
+        carousel: false,
+        screenshots: [],
+        appScreenshots: []
       });
       setEditingProjectIndex('new');
     }
@@ -380,10 +539,22 @@ export default function AdminDashboard({ portfolioData, onSave, onClose }) {
       {/* Toast Notification */}
       {notification && (
         <div style={{
-          position: 'fixed', bottom: 30, right: 30, zIndex: 10001,
-          padding: '0.8rem 1.5rem', background: '#1e293b', border: '1px solid #10b981',
-          borderRadius: 10, color: '#fff', boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
-          fontWeight: 600
+          position: 'fixed',
+          top: 30,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 10020,
+          padding: '0.8rem 1.8rem',
+          background: 'rgba(30, 41, 59, 0.95)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid #10b981',
+          borderRadius: 50,
+          color: '#fff',
+          boxShadow: '0 12px 30px rgba(0,0,0,0.5)',
+          fontWeight: 600,
+          fontSize: '0.95rem',
+          textAlign: 'center',
+          whiteSpace: 'nowrap'
         }}>
           {notification}
         </div>
@@ -409,6 +580,12 @@ export default function AdminDashboard({ portfolioData, onSave, onClose }) {
           onClick={() => setActiveTab('hero')}
         >
           👤 Hero & Contact
+        </button>
+        <button
+          className={`admin-nav-tab ${activeTab === 'about' ? 'active' : ''}`}
+          onClick={() => setActiveTab('about')}
+        >
+          📝 About Me
         </button>
         <button
           className={`admin-nav-tab ${activeTab === 'skills' ? 'active' : ''}`}
@@ -641,8 +818,94 @@ export default function AdminDashboard({ portfolioData, onSave, onClose }) {
                   </div>
                 )}
 
+                {/* Laptop Screenshots Section */}
+                {projectForm.type !== 'none' && (projectForm.type === 'website' || projectForm.type === 'both') && (
+                  <div style={{ marginTop: '1rem', padding: '1.2rem', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '1.2rem' }}>
+                    <label style={{ display: 'block', fontSize: '0.88rem', color: '#a1a1aa', fontWeight: 600, marginBottom: '0.5rem' }}>
+                      💻 Laptop Screenshots Gallery (Auto-slides every 2s)
+                    </label>
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '0.8rem' }}>
+                      {(projectForm.screenshots || []).map((src, sIdx) => (
+                        <div key={sIdx} style={{ position: 'relative', width: '80px', height: '50px', borderRadius: '4px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.2)' }}>
+                          <img src={src} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setProjectForm(prev => ({
+                                ...prev,
+                                screenshots: prev.screenshots.filter((_, i) => i !== sIdx)
+                              }));
+                            }}
+                            style={{ position: 'absolute', top: 0, right: 0, background: 'rgba(239, 68, 68, 0.9)', color: '#fff', border: 'none', borderRadius: '0 0 0 4px', cursor: 'pointer', fontSize: '0.7rem', padding: '2px 5px' }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', color: '#71717a', marginBottom: '0.4rem' }}>📁 Add screenshot image file to gallery</label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="admin-input"
+                      style={{ padding: '0.45rem 0.8rem', cursor: 'pointer', marginBottom: 0 }}
+                      onChange={async e => {
+                        const files = Array.from(e.target.files);
+                        for (const file of files) {
+                          await handleScreenshotUpload(file, 'screenshots', 'Laptop');
+                        }
+                        e.target.value = '';
+                      }}
+                    />
+                  </div>
+                )}
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                {/* Mobile Screenshots Section */}
+                {projectForm.type !== 'none' && (projectForm.type === 'app' || projectForm.type === 'both') && (
+                  <div style={{ marginTop: '1rem', padding: '1.2rem', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '1.2rem' }}>
+                    <label style={{ display: 'block', fontSize: '0.88rem', color: '#a1a1aa', fontWeight: 600, marginBottom: '0.5rem' }}>
+                      📱 Mobile App Screenshots Gallery (Auto-slides every 2s)
+                    </label>
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '0.8rem' }}>
+                      {(projectForm.appScreenshots || []).map((src, sIdx) => (
+                        <div key={sIdx} style={{ position: 'relative', width: '50px', height: '80px', borderRadius: '4px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.2)' }}>
+                          <img src={src} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setProjectForm(prev => ({
+                                ...prev,
+                                appScreenshots: prev.appScreenshots.filter((_, i) => i !== sIdx)
+                              }));
+                            }}
+                            style={{ position: 'absolute', top: 0, right: 0, background: 'rgba(239, 68, 68, 0.9)', color: '#fff', border: 'none', borderRadius: '0 0 0 4px', cursor: 'pointer', fontSize: '0.7rem', padding: '2px 5px' }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', color: '#71717a', marginBottom: '0.4rem' }}>📁 Add screenshot image file to gallery</label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="admin-input"
+                      style={{ padding: '0.45rem 0.8rem', cursor: 'pointer', marginBottom: 0 }}
+                      onChange={async e => {
+                        const files = Array.from(e.target.files);
+                        for (const file of files) {
+                          await handleScreenshotUpload(file, 'appScreenshots', 'Mobile');
+                        }
+                        e.target.value = '';
+                      }}
+                    />
+                  </div>
+                )}
+
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '0.4rem' }}>GitHub Repository URL</label>
                     <input
@@ -660,6 +923,28 @@ export default function AdminDashboard({ portfolioData, onSave, onClose }) {
                       value={projectForm.liveUrl}
                       onChange={e => setProjectForm({ ...projectForm, liveUrl: e.target.value })}
                       placeholder="https://your-demo-url.com"
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.2rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '0.4rem' }}>GitHub Button Label</label>
+                    <input
+                      className="admin-input"
+                      value={projectForm.githubLabel || ''}
+                      onChange={e => setProjectForm({ ...projectForm, githubLabel: e.target.value })}
+                      placeholder="e.g. 💻 GitHub Repo"
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '0.4rem' }}>Live Link Button Label</label>
+                    <input
+                      className="admin-input"
+                      value={projectForm.liveLabel || ''}
+                      onChange={e => setProjectForm({ ...projectForm, liveLabel: e.target.value })}
+                      placeholder="e.g. 🌐 Live Demo"
                     />
                   </div>
                 </div>
@@ -726,7 +1011,13 @@ export default function AdminDashboard({ portfolioData, onSave, onClose }) {
                     <p style={{ color: '#a1a1aa', fontSize: '0.88rem' }}>{p.subtitle}</p>
                   </div>
 
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <button className="admin-btn admin-btn-secondary" style={{ padding: '0.35rem 0.6rem' }} onClick={() => moveItemUp('projects', idx)} disabled={idx === 0}>
+                      🔼
+                    </button>
+                    <button className="admin-btn admin-btn-secondary" style={{ padding: '0.35rem 0.6rem' }} onClick={() => moveItemDown('projects', idx)} disabled={idx === formData.projects.length - 1}>
+                      🔽
+                    </button>
                     <button className="admin-btn admin-btn-secondary" onClick={() => startEditProject(idx)}>
                       ✏️ Edit
                     </button>
@@ -748,6 +1039,37 @@ export default function AdminDashboard({ portfolioData, onSave, onClose }) {
               <button className="admin-btn admin-btn-success" onClick={handleSaveHero}>
                 💾 Save Hero Info
               </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: '1.5rem', marginBottom: '1.5rem', alignItems: 'center' }}>
+              <div style={{ width: '80px', height: '80px', borderRadius: '12px', overflow: 'hidden', background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)' }}>
+                {formData.hero?.photoSrc ? (
+                  <img src={formData.hero.photoSrc} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Preview" />
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: '0.75rem', color: '#a1a1aa' }}>No Photo</div>
+                )}
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '0.4rem' }}>Profile Picture (Direct Upload to CDN)</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="admin-input"
+                  style={{ marginBottom: '0.5rem', cursor: 'pointer', padding: '0.35rem 0.5rem' }}
+                  onChange={e => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      handleProfilePhotoUpload(file);
+                    }
+                  }}
+                />
+                <input
+                  className="admin-input"
+                  value={formData.hero?.photoSrc || ''}
+                  onChange={e => handleHeroFieldChange('photoSrc', e.target.value)}
+                  placeholder="Or paste an external image URL here..."
+                />
+              </div>
             </div>
 
             <label style={{ display: 'block', fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '0.4rem' }}>Full Name</label>
@@ -796,7 +1118,149 @@ export default function AdminDashboard({ portfolioData, onSave, onClose }) {
               className="admin-input"
               value={formData.hero?.status || ''}
               onChange={e => handleHeroFieldChange('status', e.target.value)}
+              style={{ marginBottom: '1.5rem' }}
             />
+
+            <div className="admin-grid-2">
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '0.4rem' }}>Instagram Profile URL</label>
+                <input
+                  className="admin-input"
+                  value={formData.hero?.instagramUrl || ''}
+                  onChange={e => handleHeroFieldChange('instagramUrl', e.target.value)}
+                  placeholder="https://instagram.com/yourprofile"
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '0.4rem' }}>Resume PDF Link / File Path</label>
+                <input
+                  className="admin-input"
+                  value={formData.hero?.resumeUrl || ''}
+                  onChange={e => handleHeroFieldChange('resumeUrl', e.target.value)}
+                  placeholder="e.g. /resume.pdf"
+                />
+              </div>
+            </div>
+
+            <h4 style={{ fontSize: '1.15rem', fontWeight: 700, marginTop: '1.5rem', marginBottom: '1rem', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '1.5rem', color: '#f5b400' }}>Section Headings</h4>
+            <div className="admin-grid-2" style={{ gap: '1.2rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '0.4rem' }}>Projects Section Header</label>
+                <input
+                  className="admin-input"
+                  value={formData.sectionHeaders?.projects || 'Featured projects'}
+                  onChange={e => setFormData({
+                    ...formData,
+                    sectionHeaders: { ...formData.sectionHeaders, projects: e.target.value }
+                  })}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '0.4rem' }}>Education Section Header</label>
+                <input
+                  className="admin-input"
+                  value={formData.sectionHeaders?.education || 'Education'}
+                  onChange={e => setFormData({
+                    ...formData,
+                    sectionHeaders: { ...formData.sectionHeaders, education: e.target.value }
+                  })}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '0.4rem' }}>Experience Section Header</label>
+                <input
+                  className="admin-input"
+                  value={formData.sectionHeaders?.experience || 'Experience'}
+                  onChange={e => setFormData({
+                    ...formData,
+                    sectionHeaders: { ...formData.sectionHeaders, experience: e.target.value }
+                  })}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '0.4rem' }}>Skills Section Header</label>
+                <input
+                  className="admin-input"
+                  value={formData.sectionHeaders?.skills || 'Skills'}
+                  onChange={e => setFormData({
+                    ...formData,
+                    sectionHeaders: { ...formData.sectionHeaders, skills: e.target.value }
+                  })}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── ABOUT ME TAB ── */}
+        {activeTab === 'about' && (
+          <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <div>
+                <h3 style={{ fontSize: '1.3rem', fontWeight: 700 }}>Edit About Me Section</h3>
+                <p style={{ color: '#a1a1aa', fontSize: '0.9rem' }}>Customize your professional bio, heading, and featured tech tags.</p>
+              </div>
+              <button className="admin-btn admin-btn-success" onClick={() => saveCategoryData(formData, '💾 About Me info saved!')}>
+                💾 Save About Me
+              </button>
+            </div>
+
+            <div style={{ marginBottom: '1.2rem' }}>
+              <label style={{ display: 'block', fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '0.4rem' }}>Section Subheading</label>
+              <input
+                className="admin-input"
+                value={formData.about?.subheading || ''}
+                onChange={e => setFormData({
+                  ...formData,
+                  about: { ...formData.about, subheading: e.target.value }
+                })}
+                placeholder="e.g. About me"
+              />
+            </div>
+
+            <div style={{ marginBottom: '1.2rem' }}>
+              <label style={{ display: 'block', fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '0.4rem' }}>Section Main Heading</label>
+              <textarea
+                className="admin-input"
+                style={{ minHeight: '60px' }}
+                value={formData.about?.heading || ''}
+                onChange={e => setFormData({
+                  ...formData,
+                  about: { ...formData.about, heading: e.target.value }
+                })}
+                placeholder="e.g. Building the web,&#10;one layer at a time."
+              />
+            </div>
+
+            <div style={{ marginBottom: '1.2rem' }}>
+              <label style={{ display: 'block', fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '0.4rem' }}>Bio / Description Paragraph</label>
+              <textarea
+                className="admin-input"
+                style={{ minHeight: '120px', resize: 'vertical' }}
+                value={formData.about?.desc || ''}
+                onChange={e => setFormData({
+                  ...formData,
+                  about: { ...formData.about, desc: e.target.value }
+                })}
+                placeholder="Write your main professional story here..."
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '0.4rem' }}>Featured Tech Tags (Comma-separated)</label>
+              <input
+                className="admin-input"
+                value={Array.isArray(formData.about?.techTags) ? formData.about.techTags.join(', ') : formData.about?.techTags || ''}
+                onChange={e => {
+                  const tagsArr = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                  setFormData({
+                    ...formData,
+                    about: { ...formData.about, techTags: tagsArr }
+                  });
+                }}
+                placeholder="e.g. Python, Django, React, REST APIs, Flutter"
+              />
+            </div>
           </div>
         )}
 
@@ -805,14 +1269,19 @@ export default function AdminDashboard({ portfolioData, onSave, onClose }) {
           <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '1.5rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <h3 style={{ fontSize: '1.3rem', fontWeight: 700 }}>Manage Skill Groups</h3>
-              <button className="admin-btn admin-btn-success" onClick={handleSaveSkills}>
-                💾 Save Skills
-              </button>
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <button className="admin-btn admin-btn-primary" onClick={addSkillGroup}>
+                  ➕ Add Skill Group
+                </button>
+                <button className="admin-btn admin-btn-success" onClick={handleSaveSkills}>
+                  💾 Save Skills
+                </button>
+              </div>
             </div>
 
             {formData.skillGroups.map((g, idx) => (
               <div key={idx} style={{ marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr auto', gap: '1rem', alignItems: 'center' }}>
                   <input
                     className="admin-input"
                     value={g.label}
@@ -834,6 +1303,17 @@ export default function AdminDashboard({ portfolioData, onSave, onClose }) {
                     }}
                     placeholder="Comma separated skills..."
                   />
+                  <div style={{ display: 'flex', gap: '0.4rem' }}>
+                    <button className="admin-btn admin-btn-secondary" style={{ padding: '0.35rem 0.6rem' }} onClick={() => moveItemUp('skillGroups', idx)} disabled={idx === 0}>
+                      🔼
+                    </button>
+                    <button className="admin-btn admin-btn-secondary" style={{ padding: '0.35rem 0.6rem' }} onClick={() => moveItemDown('skillGroups', idx)} disabled={idx === formData.skillGroups.length - 1}>
+                      🔽
+                    </button>
+                    <button className="admin-btn admin-btn-danger" style={{ padding: '0.35rem 0.6rem' }} onClick={() => deleteSkillGroup(idx)}>
+                      🗑️
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -853,9 +1333,14 @@ export default function AdminDashboard({ portfolioData, onSave, onClose }) {
             <div className="admin-grid-2" style={{ gap: '1.5rem' }}>
               {/* Education */}
               <div>
-                <h4 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>Education</h4>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <h4 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0 }}>Education</h4>
+                  <button className="admin-btn admin-btn-primary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.85rem' }} onClick={addEducationItem}>
+                    ➕ Add Education
+                  </button>
+                </div>
                 {formData.education.map((edu, idx) => (
-                  <div key={idx} style={{ marginBottom: '1rem' }}>
+                  <div key={idx} style={{ marginBottom: '1.5rem', padding: '1rem', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px' }}>
                     <input
                       className="admin-input"
                       style={{ marginBottom: '0.4rem' }}
@@ -880,6 +1365,7 @@ export default function AdminDashboard({ portfolioData, onSave, onClose }) {
                     />
                     <input
                       className="admin-input"
+                      style={{ marginBottom: '0.6rem' }}
                       value={edu.desc}
                       onChange={e => {
                         const newEdu = [...formData.education];
@@ -888,15 +1374,31 @@ export default function AdminDashboard({ portfolioData, onSave, onClose }) {
                       }}
                       placeholder="Duration / Details"
                     />
+                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                      <button className="admin-btn admin-btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }} onClick={() => moveItemUp('education', idx)} disabled={idx === 0}>
+                        🔼 Up
+                      </button>
+                      <button className="admin-btn admin-btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }} onClick={() => moveItemDown('education', idx)} disabled={idx === formData.education.length - 1}>
+                        🔽 Down
+                      </button>
+                      <button className="admin-btn admin-btn-danger" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }} onClick={() => deleteEducationItem(idx)}>
+                        🗑️ Delete
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
 
               {/* Experience */}
               <div>
-                <h4 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>Experience</h4>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <h4 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0 }}>Experience</h4>
+                  <button className="admin-btn admin-btn-primary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.85rem' }} onClick={addExperienceItem}>
+                    ➕ Add Experience
+                  </button>
+                </div>
                 {formData.experience.map((exp, idx) => (
-                  <div key={idx} style={{ marginBottom: '1rem' }}>
+                  <div key={idx} style={{ marginBottom: '1.5rem', padding: '1rem', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px' }}>
                     <input
                       className="admin-input"
                       style={{ marginBottom: '0.4rem' }}
@@ -921,7 +1423,7 @@ export default function AdminDashboard({ portfolioData, onSave, onClose }) {
                     />
                     <textarea
                       className="admin-input"
-                      style={{ minHeight: '60px' }}
+                      style={{ minHeight: '60px', marginBottom: '0.6rem' }}
                       value={exp.desc}
                       onChange={e => {
                         const newExp = [...formData.experience];
@@ -930,6 +1432,17 @@ export default function AdminDashboard({ portfolioData, onSave, onClose }) {
                       }}
                       placeholder="Responsibilities / Description"
                     />
+                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                      <button className="admin-btn admin-btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }} onClick={() => moveItemUp('experience', idx)} disabled={idx === 0}>
+                        🔼 Up
+                      </button>
+                      <button className="admin-btn admin-btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }} onClick={() => moveItemDown('experience', idx)} disabled={idx === formData.experience.length - 1}>
+                        🔽 Down
+                      </button>
+                      <button className="admin-btn admin-btn-danger" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }} onClick={() => deleteExperienceItem(idx)}>
+                        🗑️ Delete
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

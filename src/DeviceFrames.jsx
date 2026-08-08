@@ -1,10 +1,50 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { motion } from 'framer-motion';
+
+// Helper to convert standard cloud storage URLs (OneDrive, Google Drive, Dropbox) into direct streaming URLs
+export const getDirectVideoUrl = (url) => {
+  if (!url) return '';
+  try {
+    let cleanUrl = url.trim();
+    
+    // Dropbox conversion (force raw video stream instead of HTML preview)
+    if (cleanUrl.includes('dropbox.com')) {
+      return cleanUrl.replace('?dl=0', '?raw=1').replace('&dl=0', '&raw=1');
+    }
+    
+    // Google Drive conversion (bypasses HTML preview page)
+    if (cleanUrl.includes('drive.google.com')) {
+      const match = cleanUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) {
+        return `https://docs.google.com/uc?export=download&id=${match[1]}`;
+      }
+    }
+    
+    // OneDrive conversion
+    if (cleanUrl.includes('onedrive.live.com') && cleanUrl.includes('redir')) {
+      return cleanUrl.replace('redir', 'download');
+    }
+    
+    return cleanUrl;
+  } catch (e) {
+    return url;
+  }
+};
 
 // ─── LAPTOP FRAME (For Websites) ──────────────────────────────────────────────
-export const LaptopFrame = ({ videoSrc, imageSrc, title, fallbackContent }) => {
+export const LaptopFrame = ({ videoSrc, imageSrc, title, fallbackContent, screenshots = [], onFlow }) => {
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
   const videoRef = useRef(null);
+  const [currentSlideIdx, setCurrentSlideIdx] = useState(0);
+
+  useEffect(() => {
+    if (!screenshots || screenshots.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentSlideIdx(prev => (prev + 1) % screenshots.length);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [screenshots]);
 
   const togglePlay = () => {
     if (videoRef.current) {
@@ -130,7 +170,46 @@ export const LaptopFrame = ({ videoSrc, imageSrc, title, fallbackContent }) => {
       <div className="laptop-container">
         <div className="laptop-screen">
           <div className="laptop-camera"></div>
-          {videoSrc ? (
+          {screenshots && screenshots.length > 0 ? (
+            <>
+              <motion.img
+                key={currentSlideIdx}
+                initial={{ opacity: 0.6 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.4 }}
+                className="laptop-media"
+                src={screenshots[currentSlideIdx]}
+                alt={`${title || 'Project'} screenshot ${currentSlideIdx + 1}`}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+              {onFlow && (
+                <button 
+                  onClick={onFlow}
+                  style={{
+                    position: 'absolute',
+                    top: '12px',
+                    right: '12px',
+                    background: 'rgba(0, 0, 0, 0.7)',
+                    backdropFilter: 'blur(8px)',
+                    border: '1px solid rgba(255,255,255,0.25)',
+                    color: '#fff',
+                    borderRadius: '20px',
+                    padding: '5px 12px',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    zIndex: 30,
+                    boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
+                    transition: 'transform 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
+                  onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                >
+                  🖼️ Flow Gallery
+                </button>
+              )}
+            </>
+          ) : videoSrc ? (
             isEmbed ? (
               <iframe
                 src={getEmbedSrc(videoSrc)}
@@ -144,7 +223,7 @@ export const LaptopFrame = ({ videoSrc, imageSrc, title, fallbackContent }) => {
                 <video
                   ref={videoRef}
                   className="laptop-media"
-                  src={videoSrc}
+                  src={getDirectVideoUrl(videoSrc)}
                   autoPlay
                   loop
                   muted
@@ -184,10 +263,19 @@ export const LaptopFrame = ({ videoSrc, imageSrc, title, fallbackContent }) => {
 
 
 // ─── PHONE FRAME (For Mobile Apps) ─────────────────────────────────────────────
-export const PhoneFrame = ({ videoSrc, imageSrc, title, fallbackContent }) => {
+export const PhoneFrame = ({ videoSrc, imageSrc, title, fallbackContent, screenshots = [], onFlow }) => {
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
   const videoRef = useRef(null);
+  const [currentSlideIdx, setCurrentSlideIdx] = useState(0);
+
+  useEffect(() => {
+    if (!screenshots || screenshots.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentSlideIdx(prev => (prev + 1) % screenshots.length);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [screenshots]);
 
   const togglePlay = () => {
     if (videoRef.current) {
@@ -286,7 +374,46 @@ export const PhoneFrame = ({ videoSrc, imageSrc, title, fallbackContent }) => {
         <div className="phone-notch">
           <div className="phone-camera-lens"></div>
         </div>
-        {videoSrc ? (
+        {screenshots && screenshots.length > 0 ? (
+          <>
+            <motion.img
+              key={currentSlideIdx}
+              initial={{ opacity: 0.6 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.4 }}
+              className="phone-media"
+              src={screenshots[currentSlideIdx]}
+              alt={`${title || 'Project'} app screenshot ${currentSlideIdx + 1}`}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+            {onFlow && (
+              <button 
+                onClick={onFlow}
+                style={{
+                  position: 'absolute',
+                  top: '12px',
+                  right: '12px',
+                  background: 'rgba(0, 0, 0, 0.7)',
+                  backdropFilter: 'blur(8px)',
+                  border: '1px solid rgba(255,255,255,0.25)',
+                  color: '#fff',
+                  borderRadius: '20px',
+                  padding: '5px 12px',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  zIndex: 30,
+                  boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
+                  transition: 'transform 0.2s'
+                }}
+                onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
+                onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+              >
+                🖼️ Flow
+              </button>
+            )}
+          </>
+        ) : videoSrc ? (
           isEmbed ? (
             <iframe
               src={getEmbedSrc(videoSrc)}
@@ -300,7 +427,7 @@ export const PhoneFrame = ({ videoSrc, imageSrc, title, fallbackContent }) => {
               <video
                 ref={videoRef}
                 className="phone-media"
-                src={videoSrc}
+                src={getDirectVideoUrl(videoSrc)}
                 autoPlay
                 loop
                 muted
@@ -337,7 +464,7 @@ export const PhoneFrame = ({ videoSrc, imageSrc, title, fallbackContent }) => {
 
 
 // ─── DUAL DEVICE FRAME (Both Website & Mobile App) ───────────────────────────
-export const DualDeviceFrame = ({ webVideoSrc, webImageSrc, appVideoSrc, appImageSrc, title }) => {
+export const DualDeviceFrame = ({ webVideoSrc, webImageSrc, appVideoSrc, appImageSrc, title, webScreenshots = [], appScreenshots = [], onFlowWeb, onFlowApp }) => {
   return (
     <div className="dual-device-grid" style={{ margin: '0 auto 1.5rem auto', width: '100%', maxWidth: '850px' }}>
       <style>{`
@@ -358,13 +485,13 @@ export const DualDeviceFrame = ({ webVideoSrc, webImageSrc, appVideoSrc, appImag
         <span style={{ display: 'block', fontSize: '0.75rem', color: '#60a5fa', fontWeight: 700, marginBottom: '0.4rem', textAlign: 'center' }}>
           💻 Web Portal
         </span>
-        <LaptopFrame videoSrc={webVideoSrc} imageSrc={webImageSrc} title={`${title} Web`} />
+        <LaptopFrame videoSrc={webVideoSrc} imageSrc={webImageSrc} title={`${title} Web`} screenshots={webScreenshots} onFlow={onFlowWeb} />
       </div>
       <div>
         <span style={{ display: 'block', fontSize: '0.75rem', color: '#c084fc', fontWeight: 700, marginBottom: '0.4rem', textAlign: 'center' }}>
           📱 Mobile App
         </span>
-        <PhoneFrame videoSrc={appVideoSrc} imageSrc={appImageSrc} title={`${title} App`} />
+        <PhoneFrame videoSrc={appVideoSrc} imageSrc={appImageSrc} title={`${title} App`} screenshots={appScreenshots} onFlow={onFlowApp} />
       </div>
     </div>
   );

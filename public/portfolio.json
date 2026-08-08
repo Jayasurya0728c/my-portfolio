@@ -1,0 +1,213 @@
+{
+  "hero": {
+    "name": "Jayasurya CJ",
+    "title": "Python full-stack developer building with Django and React",
+    "location": "Palakkad, Kerala",
+    "email": "jayasuryacj@gmail.com",
+    "phone": "+91 7593964893",
+    "status": "Open to opportunities",
+    "photoSrc": ""
+  },
+  "about": {
+    "subheading": "About me",
+    "heading": "Building the web,\none layer at a time.",
+    "desc": "Information Technology graduate with skills in Python, Django, React, SQL, HTML, and CSS. Hands-on experience building web applications through academic and personal projects. Passionate about software development, eager to learn new technologies, and committed to contributing effectively to real-world projects as part of a collaborative team.",
+    "techTags": [
+      "Python",
+      "Django",
+      "React",
+      "REST APIs",
+      "Flutter"
+    ]
+  },
+  "projects": [
+    {
+      "title": "Sports Jersey E-Commerce",
+      "subtitle": "Full-stack sports gear storefront",
+      "desc": "A full-stack e-commerce application featuring a dynamic product catalog, secure user authentication, shopping cart, and order processing. The interactive frontend includes an animated featured collection carousel fully integrated with a robust backend API and database.",
+      "type": "website",
+      "videoSrc": "https://files.catbox.moe/9kd0o8.mp4",
+      "imageSrc": "",
+      "appVideoSrc": "",
+      "appImageSrc": "",
+      "githubUrl": "",
+      "liveUrl": "https://miyakacouture.in",
+      "githubLabel": "",
+      "liveLabel": "Live now at miyakacouture.in",
+      "tags": [
+        "React",
+        "Django",
+        "Python",
+        "SQL",
+        "REST APIs"
+      ],
+      "wide": true,
+      "carousel": false
+    },
+    {
+      "title": "SmartHire",
+      "subtitle": "AI Recruitment Platform",
+      "desc": "Built a recruitment platform with a candidate mobile app and an interviewer web portal. Integrated AI-based interview evaluation using facial and voice analysis, and developed REST APIs for candidate management and automated assessment.",
+      "type": "both",
+      "videoSrc": "",
+      "imageSrc": "",
+      "appVideoSrc": "https://files.catbox.moe/3oovrp.mp4",
+      "appImageSrc": "",
+      "githubUrl": "",
+      "liveUrl": "",
+      "githubLabel": "",
+      "liveLabel": "",
+      "tags": [
+        "Python",
+        "Django",
+        "Flutter",
+        "React",
+        "REST APIs"
+      ],
+      "wide": true,
+      "carousel": false,
+      "screenshots": [],
+      "appScreenshots": []
+    },
+    {
+      "title": "Print Request Management Portal",
+      "subtitle": "Document and print workflow system",
+      "desc": "Developed a web application to manage document uploads and print requests. Implemented admin approval, print queue management, request status tracking, and role-based access to streamline printing operations.",
+      "type": "none",
+      "videoSrc": "",
+      "imageSrc": "",
+      "appVideoSrc": "",
+      "appImageSrc": "",
+      "githubUrl": "",
+      "liveUrl": "",
+      "githubLabel": "",
+      "liveLabel": "",
+      "tags": [
+        "Python",
+        "Django",
+        "HTML",
+        "CSS",
+        "SQL"
+      ],
+      "wide": false,
+      "carousel": false
+    },
+    {
+      "title": "CampusTrade",
+      "subtitle": "Student Marketplace",
+      "desc": "Developed a marketplace for students to buy and sell academic materials within the campus. Implemented secure authentication, product listings, category-based browsing, and email-based communication between buyers and sellers.",
+      "type": "none",
+      "videoSrc": "",
+      "imageSrc": "",
+      "appVideoSrc": "",
+      "appImageSrc": "",
+      "githubUrl": "",
+      "liveUrl": "",
+      "githubLabel": "",
+      "liveLabel": "",
+      "tags": [
+        "Python",
+        "Django",
+        "HTML",
+        "CSS",
+        "SQL"
+      ],
+      "wide": false,
+      "carousel": false
+    }
+  ],
+  "education": [
+    {
+      "role": "Full Stack Development - Python, Django, React JS",
+      "org": "One Team Solutions Edtech Pvt Ltd",
+      "desc": "2026 | Kochi, Kerala"
+    },
+    {
+      "role": "B.Tech in Information Technology",
+      "org": "College Of Engineering Vadakara",
+      "desc": "2022-26 | Kozhikode, Kerala"
+    },
+    {
+      "role": "Computer Science",
+      "org": "KPRP HSS Kongad (Kerala Board)",
+      "desc": "2020-22 | Palakkad, Kerala"
+    }
+  ],
+  "experience": [
+    {
+      "role": "Software Development Intern",
+      "org": "Metaloop Global IT Services",
+      "desc": "Completed short-term training in mobile and web application development. Gained exposure to front-end and back-end development workflows, and participated in application testing and basic feature implementation."
+    },
+    {
+      "role": "Python Development Intern",
+      "org": "Revertech IT Solutions",
+      "desc": "Completed short-term training focused on Python programming and backend development. Worked on practical coding exercises using Python and web technologies, gaining hands-on experience with basic web application development concepts."
+    }
+  ],
+  "skillGroups": [
+    {
+      "label": "Languages",
+      "items": [
+        "Python",
+        "Java",
+        "JavaScript (Basics)"
+      ]
+    },
+    {
+      "label": "Web",
+      "items": [
+        "HTML5",
+        "CSS3",
+        "Django",
+        "React",
+        "REST APIs"
+      ]
+    },
+    {
+      "label": "Mobile",
+      "items": [
+        "Flutter"
+      ]
+    },
+    {
+      "label": "Database",
+      "items": [
+        "SQL",
+        "Database Management"
+      ]
+    },
+    {
+      "label": "Tools",
+      "items": [
+        "Git",
+        "GitHub",
+        "Figma",
+        "Canva",
+        "AI-Assisted Software Development"
+      ]
+    },
+    {
+      "label": "Core",
+      "items": [
+        "Responsive Web Dev",
+        "OOP",
+        "UI/UX Design",
+        "Problem Solving",
+        "Vibe Coding",
+        "Team Collaboration",
+        "Communication",
+        "Project Management",
+        "Time Management"
+      ]
+    },
+    {
+      "label": "Spoken",
+      "items": [
+        "English",
+        "Malayalam",
+        "Hindi"
+      ]
+    }
+  ]
+}

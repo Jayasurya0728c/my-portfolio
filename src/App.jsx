@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
 import './App.css';
 import cjImage from './assets/CJ-image2.jpeg';
 import CinematicBackground from './CinematicBackground';
@@ -974,7 +974,226 @@ const GlassNavbar = ({ onOpenAdmin }) => {
 // ─── PORTFOLIO ────────────────────────────────────────────────────────────────
 export default function Portfolio() {
   const [showIntro, setShowIntro] = useState(true);
+  const [isExiting, setIsExiting] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [showBadge, setShowBadge] = useState(false);
+  const [isAboutVisible, setIsAboutVisible] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [isFabOpen, setIsFabOpen] = useState(false);
+  const [activeFlowScreenshots, setActiveFlowScreenshots] = useState(null);
+  const [activeFlowTitle, setActiveFlowTitle] = useState('');
+  const [lightboxImg, setLightboxImg] = useState(null);
+  const [hasEntered, setHasEntered] = useState(false);
+
+  const { scrollY } = useScroll();
+  // Cinematic morph: card details/background dissolve early, avatar photo glides & grows to match About section photo
+  const scrollStart = 0;
+  const scrollEnd = isMobile ? 280 : 450;
+  const cardY = useTransform(scrollY, [scrollStart, scrollEnd], [0, isMobile ? 120 : 420]);
+  const cardX = useTransform(scrollY, [scrollStart, scrollEnd], [0, isMobile ? 0 : -1 * (typeof window !== 'undefined' ? window.innerWidth * 0.52 : 720)]);
+  const cardRotate = useTransform(scrollY, [scrollStart, scrollEnd], [isMobile ? 0 : 4, 0]);
+  const cardScale = useTransform(scrollY, [scrollStart, scrollEnd], [1, isMobile ? 1.6 : 3.2]);
+  const cardOpacity = useTransform(scrollY, [scrollEnd * 0.8, scrollEnd], [1, 0]);
+  const cardBgOpacity = useTransform(scrollY, [0, 180], [1, 0]);        // background box & border dissolve early
+  const cardDetailOpacity = useTransform(scrollY, [0, 140], [1, 0]);    // status/name/barcode fade out early
+  const lanyardOpacity = useTransform(scrollY, [0, 80], [1, 0]);        // lanyard string fades immediately
+
+  const marqueeRef = useRef(null);
+  const progressBarRef = useRef(null);
+  const isPausedRef = useRef(false);
+  const resumeTimeoutRef = useRef(null);
+
+  // Transform-based carousel state (no scrollLeft — pure GPU)
+  const offsetRef = useRef(0);        // virtual scroll position
+  const velocityRef = useRef(0);       // momentum velocity for inertia
+  const isDraggingRef = useRef(false);
+  const wasDraggingRef = useRef(false);
+  const dragStartXRef = useRef(0);
+  const dragOffsetRef = useRef(0);
+
+  const handleUserInteraction = useCallback(() => {
+    isPausedRef.current = true;
+    if (resumeTimeoutRef.current) {
+      clearTimeout(resumeTimeoutRef.current);
+    }
+    resumeTimeoutRef.current = setTimeout(() => {
+      isPausedRef.current = false;
+    }, 3000);
+  }, []);
+
+  const handleDragStart = (e) => {
+    isDraggingRef.current = true;
+    wasDraggingRef.current = false;
+    velocityRef.current = 0;
+    dragStartXRef.current = e.pageX || (e.touches && e.touches[0]?.pageX) || 0;
+    dragOffsetRef.current = offsetRef.current;
+    handleUserInteraction();
+  };
+
+  const handleDragMove = (e) => {
+    if (!isDraggingRef.current) return;
+    e.preventDefault();
+    const pageX = e.pageX || (e.touches && e.touches[0]?.pageX) || 0;
+    const delta = pageX - dragStartXRef.current;
+    if (Math.abs(delta) > 5) {
+      wasDraggingRef.current = true;
+    }
+    const newOffset = dragOffsetRef.current - delta;
+    velocityRef.current = offsetRef.current - newOffset; // track velocity for inertia
+    offsetRef.current = newOffset;
+    handleUserInteraction();
+  };
+
+  const handleDragEnd = () => {
+    isDraggingRef.current = false;
+  };
+
+  useEffect(() => {
+    if (!activeFlowScreenshots) return;
+    const container = marqueeRef.current;
+    if (!container) return;
+
+    // Lock body scroll while flow overlay is open
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    // Image sizing — must match JSX inline styles
+    const imgW = isMobile ? 240 : 360;
+    const gap = isMobile ? 24 : 40;
+    const itemStep = imgW + gap;
+    const totalItems = activeFlowScreenshots.length;
+    const totalWidth = totalItems * itemStep;
+
+    let animationId;
+    const scrollStep = () => {
+      // 1. Autoscroll (slow, smooth drift)
+      if (!isPausedRef.current && !isDraggingRef.current) {
+        offsetRef.current += isMobile ? 0.4 : 0.6;
+      }
+
+      // 2. Inertia / momentum after drag
+      if (!isDraggingRef.current && Math.abs(velocityRef.current) > 0.1) {
+        velocityRef.current *= 0.94; // friction
+        offsetRef.current -= velocityRef.current;
+      } else if (!isDraggingRef.current) {
+        velocityRef.current = 0;
+      }
+
+      // 3. Wrap offset for infinite loop
+      if (totalWidth > 0) {
+        while (offsetRef.current < 0) offsetRef.current += totalWidth;
+        while (offsetRef.current >= totalWidth) offsetRef.current -= totalWidth;
+      }
+
+      // 4. Position & curve each image — cinematic globe/fishbowl effect
+      const containerW = container.clientWidth;
+      const containerCenter = containerW / 2;
+      const images = container.getElementsByClassName('flow-screenshot');
+
+      for (let i = 0; i < images.length; i++) {
+        const img = images[i];
+        const dataIdx = i % totalItems;
+
+        // Compute virtual X position (infinite loop)
+        let x = dataIdx * itemStep - offsetRef.current;
+        // Wrap items to keep them within visible range
+        while (x < -itemStep) x += totalWidth;
+        while (x > containerW + itemStep) x -= totalWidth;
+
+        // Distance from center (normalized -1 to 1)
+        const imgCenter = x + imgW / 2;
+        const distFromCenter = imgCenter - containerCenter;
+        const ratio = Math.max(-1.5, Math.min(1.5, distFromCenter / (containerCenter * 0.8)));
+        const absRatio = Math.abs(ratio);
+
+        // Cinematic globe curvature
+        const rotateY = ratio * -50;                        // strong rotation at edges
+        const translateZ = -absRatio * 150;                 // deep Z push into globe
+        const scaleVal = 1 - absRatio * 0.22;               // shrink at edges
+        const brightness = 1 - absRatio * 0.35;             // strong edge darkening
+        const blur = absRatio > 0.9 ? (absRatio - 0.9) * 8 : 0; // depth-of-field blur at far edges
+
+        const isHovered = img.matches(':hover');
+
+        if (isHovered) {
+          img.style.transition = 'filter 0.3s, box-shadow 0.3s';
+          img.style.transform = `translateX(${x}px) perspective(900px) rotateY(0deg) translateZ(60px) scale(1.15)`;
+          img.style.zIndex = '100';
+          img.style.boxShadow = '0 0 80px rgba(245, 180, 0, 0.35), 0 30px 60px rgba(0,0,0,0.7)';
+          img.style.filter = 'brightness(1.15) blur(0px)';
+        } else {
+          img.style.transition = 'filter 0.3s, box-shadow 0.3s';
+          img.style.transform = `translateX(${x}px) perspective(900px) rotateY(${rotateY}deg) translateZ(${translateZ}px) scale(${scaleVal})`;
+          img.style.zIndex = String(Math.round(100 - absRatio * 50));
+          img.style.boxShadow = `0 25px 50px rgba(0,0,0,0.6), 0 0 ${30 - absRatio * 20}px rgba(245,180,0,${0.08 - absRatio * 0.06})`;
+          img.style.filter = `brightness(${brightness}) blur(${blur}px)`;
+        }
+      }
+
+      // 5. Update scroll progress bar
+      if (progressBarRef.current && totalWidth > 0) {
+        const progress = (offsetRef.current / totalWidth) * 100;
+        progressBarRef.current.style.width = `${progress}%`;
+      }
+
+      animationId = requestAnimationFrame(scrollStep);
+    };
+
+    animationId = requestAnimationFrame(scrollStep);
+    return () => {
+      cancelAnimationFrame(animationId);
+      document.body.style.overflow = prevOverflow || '';
+      if (resumeTimeoutRef.current) {
+        clearTimeout(resumeTimeoutRef.current);
+      }
+    };
+  }, [activeFlowScreenshots, isMobile]);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 820);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  const handleIntroComplete = useCallback(() => {
+    setShowIntro(false);
+    setIsExiting(false);
+  }, []);
+
+  useEffect(() => {
+    if (!showIntro) {
+      const timer = setTimeout(() => {
+        setShowBadge(true);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [showIntro]);
+
+  useEffect(() => {
+    if (showBadge) {
+      const timer = setTimeout(() => {
+        setHasEntered(true);
+      }, 1400);
+      return () => clearTimeout(timer);
+    } else {
+      setHasEntered(false);
+    }
+  }, [showBadge]);
+
+  useEffect(() => {
+    if (showIntro) return;
+    const handleScroll = () => {
+      const scrollY = window.scrollY;
+      if (scrollY > 420) {
+        setIsAboutVisible(true);
+      } else {
+        setIsAboutVisible(false);
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [showIntro]);
 
   // Dynamic portfolio data from IndexedDB / localStorage or default
   const [portfolioData, setPortfolioData] = useState(() => {
@@ -1007,8 +1226,6 @@ export default function Portfolio() {
     }
   };
 
-  const handleIntroComplete = useCallback(() => setShowIntro(false), []);
-
   const handleSaveData = (newData) => {
     setPortfolioData(newData);
     savePortfolioDataDB(newData);
@@ -1018,6 +1235,44 @@ export default function Portfolio() {
     setPortfolioData(DEFAULT_PORTFOLIO_DATA);
     localStorage.removeItem('portfolio_cms_data');
     savePortfolioDataDB(DEFAULT_PORTFOLIO_DATA);
+  };
+
+  const [formName, setFormName] = useState('');
+  const [formEmail, setFormEmail] = useState('');
+  const [formMessage, setFormMessage] = useState('');
+  const [formStatus, setFormStatus] = useState('idle');
+
+  const handleContactSubmit = async (e) => {
+    e.preventDefault();
+    if (!formName || !formEmail || !formMessage) return;
+    setFormStatus('sending');
+    try {
+      const response = await fetch("https://formsubmit.co/ajax/jayasuryacj@gmail.com", {
+        method: "POST",
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          name: formName,
+          email: formEmail,
+          message: formMessage
+        })
+      });
+      const data = await response.json();
+      if (data.success === 'true' || response.ok) {
+        setFormStatus('success');
+        setFormName('');
+        setFormEmail('');
+        setFormMessage('');
+        setTimeout(() => setFormStatus('idle'), 5000);
+      } else {
+        setFormStatus('error');
+      }
+    } catch (err) {
+      console.error(err);
+      setFormStatus('error');
+    }
   };
 
   const { hero, projects, education, experience, skillGroups } = portfolioData;
@@ -1030,6 +1285,7 @@ export default function Portfolio() {
           <IntroAnimation
             key="intro"
             onComplete={handleIntroComplete}
+            onExitStart={() => setIsExiting(true)}
           />
         )}
       </AnimatePresence>
@@ -1046,11 +1302,161 @@ export default function Portfolio() {
         />
       )}
 
+      {/* Hanging ID Card (Floating Badge) */}
+      <AnimatePresence>
+        {showBadge && !isAboutVisible && (
+          <motion.div
+            layoutId="profileCard"
+            onClick={() => document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' })}
+            initial={{ y: -450, opacity: 0, rotate: 18 }}
+            animate={{ y: 0, opacity: 1, rotate: isMobile ? 0 : 4 }}
+            exit={{ opacity: 0, scale: 3.5, transition: { duration: 0.5, ease: 'easeInOut' } }}
+            transition={{ 
+              type: 'spring', 
+              stiffness: 65, 
+              damping: 15,
+              delay: 0.1
+            }}
+            style={{
+              position: isMobile ? 'absolute' : 'fixed',
+              top: isMobile ? '35px' : '120px',
+              right: isMobile ? '12px' : '5%',
+              width: isMobile ? '105px' : '190px',
+              height: isMobile ? '155px' : '280px',
+              zIndex: isMobile ? 10 : 50,
+              padding: isMobile ? '0.6rem' : '1.2rem',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              cursor: 'pointer',
+              transformStyle: 'preserve-3d',
+              transformOrigin: 'center center',
+              y: hasEntered ? cardY : 0,
+              x: hasEntered ? cardX : 0,
+              rotate: hasEntered ? cardRotate : (isMobile ? 0 : 4),
+              scale: hasEntered ? cardScale : 1,
+              opacity: hasEntered ? cardOpacity : 1,
+            }}
+            whileHover={!hasEntered ? { rotate: 0, scale: 1.05 } : {}}
+          >
+            {/* Outer Card Glass Box & Gold Border — dissolves early as user scrolls */}
+            <motion.div style={{
+              position: 'absolute',
+              inset: 0,
+              borderRadius: isMobile ? '10px' : '16px',
+              background: 'rgba(15, 15, 25, 0.85)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              border: '1px solid rgba(245, 180, 0, 0.25)',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.85), inset 0 0 0 1px rgba(255, 255, 255, 0.05)',
+              opacity: hasEntered ? cardBgOpacity : 1,
+              pointerEvents: 'none',
+              zIndex: 0,
+            }} />
+
+            {/* Lanyard String & Clip — fades immediately as card morphs */}
+            {!isMobile && (
+              <motion.div style={{ opacity: hasEntered ? lanyardOpacity : 1, zIndex: 2 }}>
+                <div style={{
+                  position: 'absolute',
+                  top: '-150px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: '2px',
+                  height: '150px',
+                  background: 'linear-gradient(to bottom, rgba(245, 180, 0, 0) 0%, rgba(245, 180, 0, 0.4) 100%)',
+                  pointerEvents: 'none'
+                }} />
+                <div style={{
+                  position: 'absolute',
+                  top: '-6px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: '22px',
+                  height: '12px',
+                  background: 'rgba(255, 255, 255, 0.15)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  borderRadius: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 10
+                }}>
+                  <div style={{ width: '8px', height: '4px', background: '#000', borderRadius: '50%' }} />
+                </div>
+              </motion.div>
+            )}
+
+            {/* Card Header (Status) — fades during morph */}
+            <motion.div style={{ textAlign: 'center', width: '100%', opacity: hasEntered ? cardDetailOpacity : 1, zIndex: 2 }}>
+              <span style={{
+                fontSize: isMobile ? '0.45rem' : '0.62rem',
+                color: '#f5b400',
+                fontWeight: 800,
+                letterSpacing: '1px',
+                textTransform: 'uppercase'
+              }}>
+                {hero?.status || 'Open to work'}
+              </span>
+            </motion.div>
+
+            {/* Avatar Image in Badge — 3:4 Aspect Ratio matches CinematicAbout photo frame EXACTLY */}
+            <div style={{
+              width: isMobile ? '56px' : '78px',
+              height: isMobile ? '75px' : '104px',
+              aspectRatio: '3/4',
+              borderRadius: isMobile ? '6px' : '12px',
+              overflow: 'hidden',
+              border: '1px solid rgba(255, 255, 255, 0.18)',
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.6)',
+              background: '#0c0c0e',
+              marginTop: '0.1rem',
+              marginBottom: '0.1rem',
+              position: 'relative',
+              zIndex: 5,
+            }}>
+              {hero?.photoSrc ? (
+                <img src={hero.photoSrc} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="Avatar" />
+              ) : (
+                <img src={cjImage} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="Avatar" />
+              )}
+            </div>
+
+            {/* Card Holder Info — fades during morph */}
+            <motion.div style={{ textAlign: 'center', width: '100%', opacity: hasEntered ? cardDetailOpacity : 1, zIndex: 2 }}>
+              <h3 style={{ fontSize: isMobile ? '0.62rem' : '0.92rem', fontWeight: 800, margin: 0, color: '#fff', letterSpacing: '-0.3px' }}>
+                {hero?.name || 'Jayasurya CJ'}
+              </h3>
+              <p style={{ fontSize: isMobile ? '0.45rem' : '0.65rem', color: '#a1a1aa', margin: '0.1rem 0 0', fontWeight: 500 }}>
+                Python Developer
+              </p>
+            </motion.div>
+
+            {/* Barcode Accent — fades during morph */}
+            <motion.div style={{
+              width: '100%',
+              height: isMobile ? '12px' : '24px',
+              background: 'repeating-linear-gradient(90deg, #fff, #fff 1px, #000 1px, #000 4px)',
+              borderRadius: '2px',
+              border: '1px solid rgba(255,255,255,0.05)',
+              marginTop: '0.3rem',
+              opacity: hasEntered ? cardDetailOpacity : 0.8,
+              zIndex: 2,
+            }} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", background: 'transparent', color: '#fff', minHeight: '100vh', overflowX: 'hidden' }}>
         <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
         * { box-sizing: border-box; scroll-behavior: smooth; }
         html { scroll-padding-top: 80px; }
+        @media (min-width: 1024px) {
+          html { font-size: 14px; }
+          body { overflow-x: hidden; }
+        }
         @media (max-width: 720px) { .projects-grid { grid-template-columns: 1fr !important; } }
         .project-action-link {
           display: inline-flex;
@@ -1097,7 +1503,7 @@ export default function Portfolio() {
 
         {/* ── CINEMATIC ABOUT ── */}
         <div id="about">
-          <CinematicAbout photoSrc={cjImage} />
+          <CinematicAbout photoSrc={cjImage} docked={isAboutVisible} />
         </div>
 
         <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 1.5rem' }}>
@@ -1129,13 +1535,29 @@ export default function Portfolio() {
                         appVideoSrc={p.appVideoSrc}
                         appImageSrc={p.appImageSrc}
                         title={p.title}
+                        webScreenshots={p.screenshots}
+                        appScreenshots={p.appScreenshots}
+                        onFlowWeb={() => { setActiveFlowScreenshots(p.screenshots); setActiveFlowTitle(p.title); }}
+                        onFlowApp={() => { setActiveFlowScreenshots(p.appScreenshots); setActiveFlowTitle(`${p.title} Mobile`); }}
                       />
                     )}
                     {!isCarouselActive && p.type === 'app' && (
-                      <PhoneFrame videoSrc={p.videoSrc} imageSrc={p.imageSrc} title={p.title} />
+                      <PhoneFrame
+                        videoSrc={p.videoSrc}
+                        imageSrc={p.imageSrc}
+                        title={p.title}
+                        screenshots={p.appScreenshots}
+                        onFlow={() => { setActiveFlowScreenshots(p.appScreenshots); setActiveFlowTitle(p.title); }}
+                      />
                     )}
                     {!isCarouselActive && (p.type === 'website' || (!p.type && !isCarouselActive)) && (
-                      <LaptopFrame videoSrc={p.videoSrc} imageSrc={p.imageSrc} title={p.title} />
+                      <LaptopFrame
+                        videoSrc={p.videoSrc}
+                        imageSrc={p.imageSrc}
+                        title={p.title}
+                        screenshots={p.screenshots}
+                        onFlow={() => { setActiveFlowScreenshots(p.screenshots); setActiveFlowTitle(p.title); }}
+                      />
                     )}
 
                     <div style={{ padding: isCarouselActive ? '2rem 2.5rem 0' : 0 }}>
@@ -1232,8 +1654,480 @@ export default function Portfolio() {
             </TiltCard>
           </section>
 
+          {/* ── CONTACT ME ── */}
+          <section id="contact" style={{ padding: '2rem 0 8rem' }}>
+            <SectionHeader>Contact Me</SectionHeader>
+            <TiltCard style={{ padding: 'clamp(2rem, 4vw, 3rem)', maxWidth: '640px', margin: '0 auto' }}>
+              <form onSubmit={handleContactSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', textAlign: 'left' }}>
+                  <label style={{ fontSize: '0.9rem', color: '#a1a1aa', fontWeight: 600 }}>Your Name</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="John Doe"
+                    value={formName}
+                    onChange={(e) => setFormName(e.target.value)}
+                    style={{
+                      background: 'rgba(255,255,255,0.03)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: '12px',
+                      padding: '0.8rem 1rem',
+                      color: '#fff',
+                      fontSize: '0.95rem',
+                      transition: 'border-color 0.25s',
+                      fontFamily: 'inherit',
+                      outline: 'none'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = 'rgba(245, 180, 0, 0.4)'}
+                    onBlur={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.08)'}
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', textAlign: 'left' }}>
+                  <label style={{ fontSize: '0.9rem', color: '#a1a1aa', fontWeight: 600 }}>Email Address</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="john@example.com"
+                    value={formEmail}
+                    onChange={(e) => setFormEmail(e.target.value)}
+                    style={{
+                      background: 'rgba(255,255,255,0.03)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: '12px',
+                      padding: '0.8rem 1rem',
+                      color: '#fff',
+                      fontSize: '0.95rem',
+                      transition: 'border-color 0.25s',
+                      fontFamily: 'inherit',
+                      outline: 'none'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = 'rgba(245, 180, 0, 0.4)'}
+                    onBlur={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.08)'}
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', textAlign: 'left' }}>
+                  <label style={{ fontSize: '0.9rem', color: '#a1a1aa', fontWeight: 600 }}>Message</label>
+                  <textarea
+                    required
+                    rows={5}
+                    placeholder="Hi, I'd love to discuss a project..."
+                    value={formMessage}
+                    onChange={(e) => setFormMessage(e.target.value)}
+                    style={{
+                      background: 'rgba(255,255,255,0.03)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: '12px',
+                      padding: '0.8rem 1rem',
+                      color: '#fff',
+                      fontSize: '0.95rem',
+                      transition: 'border-color 0.25s',
+                      resize: 'vertical',
+                      fontFamily: 'inherit',
+                      outline: 'none'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = 'rgba(245, 180, 0, 0.4)'}
+                    onBlur={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.08)'}
+                  />
+                </div>
+                
+                {formStatus === 'success' && (
+                  <div style={{ color: '#10b981', fontSize: '0.95rem', fontWeight: 600, padding: '0.5rem', background: 'rgba(16,185,129,0.08)', borderRadius: '8px', border: '1px solid rgba(16,185,129,0.2)' }}>
+                    ✓ Message sent successfully! I'll get back to you soon.
+                  </div>
+                )}
+                {formStatus === 'error' && (
+                  <div style={{ color: '#ef4444', fontSize: '0.95rem', fontWeight: 600, padding: '0.5rem', background: 'rgba(239,68,68,0.08)', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.2)' }}>
+                    ⚠ Failed to send message. Please try again or email directly.
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={formStatus === 'sending'}
+                  style={{
+                    background: 'linear-gradient(90deg, #f5b400, #ffc72c)',
+                    border: 'none',
+                    borderRadius: '12px',
+                    padding: '1rem',
+                    color: '#000',
+                    fontWeight: 700,
+                    cursor: formStatus === 'sending' ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.25s',
+                    opacity: formStatus === 'sending' ? 0.7 : 1,
+                    boxShadow: '0 4px 20px rgba(245,180,0,0.3)',
+                    fontSize: '1rem'
+                  }}
+                >
+                  {formStatus === 'sending' ? 'Sending Message...' : 'Send Message'}
+                </button>
+              </form>
+            </TiltCard>
+          </section>
+
         </div>
       </div>
+
+      {/* Floating Action Button (FAB) Rollout Cluster */}
+      {!showIntro && (
+        <div
+          onMouseEnter={() => !isMobile && setIsFabOpen(true)}
+          onMouseLeave={() => !isMobile && setIsFabOpen(false)}
+          style={{
+            position: 'fixed',
+            bottom: isMobile ? '16px' : '30px',
+            right: isMobile ? '16px' : '30px',
+            zIndex: 9999,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: isMobile ? '8px' : '12px'
+          }}
+        >
+          <AnimatePresence>
+            {isFabOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 20, scale: 0.8 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.8 }}
+                transition={{ duration: 0.25, ease: 'easeOut' }}
+                style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '8px' : '12px', alignItems: 'center' }}
+              >
+                {/* Resume PDF Button */}
+                <a
+                  href={hero?.resumeUrl || '/resume.pdf'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="View / Download Resume PDF"
+                  style={{
+                    width: isMobile ? '38px' : '46px',
+                    height: isMobile ? '38px' : '46px',
+                    borderRadius: '50%',
+                    background: 'rgba(15, 15, 25, 0.95)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#fff',
+                    fontSize: isMobile ? '1rem' : '1.2rem',
+                    cursor: 'pointer',
+                    boxShadow: '0 8px 16px rgba(0,0,0,0.4)',
+                    transition: 'all 0.2s',
+                    textDecoration: 'none'
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.1)'; e.currentTarget.style.borderColor = '#f5b400'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'; }}
+                >
+                  📄
+                </a>
+
+                {/* Instagram Button */}
+                <a
+                  href={hero?.instagramUrl || 'https://instagram.com/jayasurya_cj'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Instagram Profile"
+                  style={{
+                    width: isMobile ? '38px' : '46px',
+                    height: isMobile ? '38px' : '46px',
+                    borderRadius: '50%',
+                    background: 'rgba(15, 15, 25, 0.95)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#fff',
+                    fontSize: isMobile ? '1rem' : '1.2rem',
+                    cursor: 'pointer',
+                    boxShadow: '0 8px 16px rgba(0,0,0,0.4)',
+                    transition: 'all 0.2s',
+                    textDecoration: 'none'
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.1)'; e.currentTarget.style.borderColor = '#c084fc'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'; }}
+                >
+                  📸
+                </a>
+
+                {/* Message Button */}
+                <button
+                  onClick={() => {
+                    document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
+                    if (isMobile) setIsFabOpen(false);
+                  }}
+                  title="Send Message"
+                  style={{
+                    width: isMobile ? '38px' : '46px',
+                    height: isMobile ? '38px' : '46px',
+                    borderRadius: '50%',
+                    background: 'rgba(15, 15, 25, 0.95)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#fff',
+                    fontSize: isMobile ? '1rem' : '1.2rem',
+                    cursor: 'pointer',
+                    boxShadow: '0 8px 16px rgba(0,0,0,0.4)',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.1)'; e.currentTarget.style.borderColor = '#60a5fa'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'; }}
+                >
+                  ✉️
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Main Social HUB FAB */}
+          <button
+            onClick={() => setIsFabOpen(!isFabOpen)}
+            style={{
+              width: isMobile ? '44px' : '54px',
+              height: isMobile ? '44px' : '54px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #f5b400 0%, #ffc72c 100%)',
+              border: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#000',
+              fontSize: isMobile ? '1.1rem' : '1.4rem',
+              cursor: 'pointer',
+              boxShadow: '0 10px 25px rgba(245, 180, 0, 0.4)',
+              transition: 'all 0.3s ease',
+              transform: isFabOpen ? 'rotate(135deg)' : 'rotate(0deg)'
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 12px 30px rgba(245, 180, 0, 0.6)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 10px 25px rgba(245, 180, 0, 0.4)'; }}
+          >
+            💬
+          </button>
+        </div>
+      )}
+
+      {/* Infinite Flowing Screenshots Overlay Modal */}
+      <AnimatePresence>
+        {activeFlowScreenshots && activeFlowScreenshots.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onWheel={(e) => e.stopPropagation()}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 10005,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'rgba(5, 5, 8, 0.94)',
+              backdropFilter: 'blur(25px)',
+              WebkitBackdropFilter: 'blur(25px)',
+              color: '#fff',
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              overflowY: 'hidden',
+            }}
+          >
+            {/* Custom stylesheet for hover pop effect and scrollbars */}
+            <style>{`
+              .flow-scroll-container::-webkit-scrollbar {
+                height: 8px;
+              }
+              .flow-scroll-container::-webkit-scrollbar-track {
+                background: rgba(255,255,255,0.01);
+              }
+              .flow-scroll-container::-webkit-scrollbar-thumb {
+                background: rgba(255,255,255,0.15);
+                border-radius: 10px;
+              }
+              .flow-scroll-container::-webkit-scrollbar-thumb:hover {
+                background: #f5b400;
+              }
+              .flow-screenshot {
+                transition: box-shadow 0.3s, filter 0.3s;
+              }
+            `}</style>
+
+            <button
+              onClick={() => setActiveFlowScreenshots(null)}
+              style={{
+                position: 'absolute',
+                top: isMobile ? '20px' : '30px',
+                right: isMobile ? '20px' : '30px',
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.15)',
+                color: '#fff',
+                borderRadius: '50px',
+                padding: '8px 20px',
+                fontSize: '0.9rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                zIndex: 35
+              }}
+              onMouseEnter={(e) => e.target.style.background = 'rgba(255,255,255,0.15)'}
+              onMouseLeave={(e) => e.target.style.background = 'rgba(255,255,255,0.06)'}
+            >
+              ✕ Close Flow
+            </button>
+
+            <h3 style={{ fontSize: isMobile ? '1.25rem' : '1.5rem', fontWeight: 800, marginBottom: '2.5rem', textTransform: 'uppercase', letterSpacing: '1px', color: '#f5b400', padding: '0 1rem', textAlign: 'center' }}>
+              {activeFlowTitle} — Screenshot Flow
+            </h3>
+
+            {/* Carousel Stage with ambient lighting */}
+            <div 
+              style={{
+                width: '100%',
+                position: 'relative',
+                background: 'radial-gradient(ellipse at 50% 50%, rgba(245,180,0,0.04) 0%, transparent 70%)',
+              }}
+            >
+              <div
+                ref={marqueeRef}
+                className="flow-scroll-container"
+                onMouseDown={handleDragStart}
+                onMouseMove={handleDragMove}
+                onMouseUp={handleDragEnd}
+                onMouseLeave={handleDragEnd}
+                onTouchStart={handleDragStart}
+                onTouchMove={handleDragMove}
+                onTouchEnd={handleDragEnd}
+                onWheel={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleUserInteraction();
+                  // Use horizontal delta if available, fall back to vertical
+                  const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+                  offsetRef.current += delta * 1.5;
+                }}
+                style={{
+                  position: 'relative',
+                  width: '100%',
+                  height: isMobile ? '300px' : '420px',
+                  overflow: 'hidden',
+                  cursor: 'grab',
+                  userSelect: 'none',
+                  touchAction: 'none',
+                }}
+              >
+                {activeFlowScreenshots.map((src, idx) => (
+                  <img
+                    key={idx}
+                    src={src}
+                    alt="Screenshot"
+                    className="flow-screenshot"
+                    draggable={false}
+                    onClick={() => {
+                      if (!wasDraggingRef.current) {
+                        setLightboxImg(src);
+                      }
+                    }}
+                    style={{
+                      position: 'absolute',
+                      left: 0,
+                      top: '50%',
+                      marginTop: isMobile ? '-115px' : '-155px',
+                      width: isMobile ? '240px' : '360px',
+                      height: isMobile ? '230px' : '310px',
+                      borderRadius: '14px',
+                      objectFit: 'contain',
+                      cursor: 'zoom-in',
+                      userSelect: 'none',
+                      pointerEvents: 'auto',
+                      willChange: 'transform',
+                      transformOrigin: 'center center',
+                    }}
+                  />
+                ))}
+              </div>
+
+              {/* Scroll Progress Bar */}
+              <div style={{
+                width: '60%',
+                maxWidth: '400px',
+                height: '3px',
+                margin: '1.5rem auto 0',
+                background: 'rgba(255,255,255,0.08)',
+                borderRadius: '4px',
+                overflow: 'hidden',
+              }}>
+                <div
+                  ref={progressBarRef}
+                  style={{
+                    height: '100%',
+                    width: '0%',
+                    background: 'linear-gradient(90deg, #f5b400, #ff8c00)',
+                    borderRadius: '4px',
+                    transition: 'width 0.05s linear',
+                    boxShadow: '0 0 8px rgba(245,180,0,0.5)',
+                  }}
+                />
+              </div>
+            </div>
+
+            <p style={{ marginTop: '1.5rem', color: '#71717a', fontSize: '0.85rem', textAlign: 'center', padding: '0 1rem' }}>
+              💡 {isMobile ? 'Swipe horizontally' : 'Scroll with your mouse wheel or drag'} to browse. Click any image to zoom.
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Fullscreen Lightbox Modal */}
+      <AnimatePresence>
+        {lightboxImg && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setLightboxImg(null)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 10010,
+              background: 'rgba(5, 5, 8, 0.96)',
+              backdropFilter: 'blur(30px)',
+              WebkitBackdropFilter: 'blur(30px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'zoom-out'
+            }}
+          >
+            <motion.img
+              initial={{ scale: 0.9, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 15 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 180 }}
+              src={lightboxImg}
+              alt="Fullscreen Preview"
+              style={{
+                maxWidth: '92%',
+                maxHeight: '88%',
+                borderRadius: '16px',
+                boxShadow: '0 25px 60px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.15)',
+                objectFit: 'contain'
+              }}
+            />
+            <div style={{
+              position: 'absolute',
+              bottom: '40px',
+              color: 'rgba(255,255,255,0.7)',
+              fontSize: '0.9rem',
+              background: 'rgba(255,255,255,0.06)',
+              padding: '8px 24px',
+              borderRadius: '50px',
+              border: '1px solid rgba(255,255,255,0.1)',
+              fontWeight: 600,
+              letterSpacing: '0.5px'
+            }}>
+              ✕ Click anywhere to close zoom
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }
