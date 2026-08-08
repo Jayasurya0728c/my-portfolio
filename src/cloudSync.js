@@ -136,8 +136,50 @@ const uploadToDirectCatbox = (fileOrBlob, fileName, onProgress) => {
   });
 };
 
+const uploadToLocalFolder = (fileOrBlob, fileName, onProgress) => {
+  return new Promise((resolve) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/upload-local', true);
+    xhr.setRequestHeader('File-Name', fileName);
+    xhr.setRequestHeader('Content-Type', fileOrBlob.type || 'application/octet-stream');
+
+    if (onProgress && xhr.upload) {
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          onProgress(Math.round((e.loaded / e.total) * 100));
+        }
+      });
+    }
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const json = JSON.parse(xhr.responseText);
+          resolve(json.url || null);
+        } catch (e) {
+          resolve(null);
+        }
+      } else {
+        resolve(null);
+      }
+    };
+    xhr.onerror = () => resolve(null);
+    xhr.send(fileOrBlob);
+  });
+};
+
 // Main media upload coordinator with multi-CDN fallback
 export const uploadMediaToCloud = async (fileOrBlob, fileName = 'media.mp4', onProgress = null) => {
+  // If running locally, save directly to the local public/screenshots directory
+  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    try {
+      const url = await uploadToLocalFolder(fileOrBlob, fileName, onProgress);
+      if (url) return url;
+    } catch (e) {
+      console.warn('Local file write failed, falling back to Vercel/cloud:', e);
+    }
+  }
+
   // Try Vercel proxy first if file is small (under 4.19MB to stay under Vercel Gateway's 4.5MB boundary)
   if (fileOrBlob.size < 4.19 * 1024 * 1024) {
     try {

@@ -1219,13 +1219,40 @@ export default function Portfolio() {
     return DEFAULT_PORTFOLIO_DATA;
   });
 
-  // Load from IndexedDB on startup (supports large video uploads)
+  // Load database on startup (fetches public/portfolio.json first, falls back to IndexedDB/localStorage)
   useEffect(() => {
-    loadPortfolioDataDB().then((dbData) => {
-      if (dbData) {
-        setPortfolioData(dbData);
-      }
-    });
+    fetch('./portfolio.json')
+      .then(res => {
+        if (res.ok) return res.json();
+        throw new Error('Could not load public portfolio.json');
+      })
+      .then(data => {
+        if (data && data.projects) {
+          // If there are local database overrides, prioritize them (for admin editing)
+          loadPortfolioDataDB().then((dbData) => {
+            if (dbData) {
+              setPortfolioData(dbData);
+            } else {
+              const localSaved = localStorage.getItem('portfolio_cms_data');
+              if (localSaved) {
+                try {
+                  setPortfolioData(JSON.parse(localSaved));
+                  return;
+                } catch (e) {}
+              }
+              setPortfolioData(data);
+            }
+          });
+        }
+      })
+      .catch(err => {
+        console.warn('portfolio.json load failed, using local fallback:', err);
+        loadPortfolioDataDB().then((dbData) => {
+          if (dbData) {
+            setPortfolioData(dbData);
+          }
+        });
+      });
   }, []);
 
   const handleOpenAdmin = () => {
