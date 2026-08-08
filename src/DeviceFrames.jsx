@@ -38,13 +38,16 @@ export const LaptopFrame = ({ videoSrc, imageSrc, title, fallbackContent, screen
   const videoRef = useRef(null);
   const [currentSlideIdx, setCurrentSlideIdx] = useState(0);
 
+  const screenshotsLength = screenshots?.length || 0;
+  const screenshotsStr = JSON.stringify(screenshots || []);
+
   useEffect(() => {
-    if (!screenshots || screenshots.length <= 1) return;
+    if (screenshotsLength <= 1) return;
     const interval = setInterval(() => {
-      setCurrentSlideIdx(prev => (prev + 1) % screenshots.length);
+      setCurrentSlideIdx(prev => (prev + 1) % screenshotsLength);
     }, 2000);
     return () => clearInterval(interval);
-  }, [screenshots]);
+  }, [screenshotsStr, screenshotsLength]);
 
   const togglePlay = () => {
     if (videoRef.current) {
@@ -269,13 +272,16 @@ export const PhoneFrame = ({ videoSrc, imageSrc, title, fallbackContent, screens
   const videoRef = useRef(null);
   const [currentSlideIdx, setCurrentSlideIdx] = useState(0);
 
+  const screenshotsLength = screenshots?.length || 0;
+  const screenshotsStr = JSON.stringify(screenshots || []);
+
   useEffect(() => {
-    if (!screenshots || screenshots.length <= 1) return;
+    if (screenshotsLength <= 1) return;
     const interval = setInterval(() => {
-      setCurrentSlideIdx(prev => (prev + 1) % screenshots.length);
+      setCurrentSlideIdx(prev => (prev + 1) % screenshotsLength);
     }, 2000);
     return () => clearInterval(interval);
-  }, [screenshots]);
+  }, [screenshotsStr, screenshotsLength]);
 
   const togglePlay = () => {
     if (videoRef.current) {
