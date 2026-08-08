@@ -419,7 +419,7 @@ const TiltCard = ({ children, style = {} }) => {
 };
 
 // ─── CINEMATIC ABOUT SECTION ──────────────────────────────────────────────────
-const CinematicAbout = ({ photoSrc }) => {
+const CinematicAbout = ({ photoSrc, docked }) => {
   const sectionRef = useRef(null);
   const photoRef = useRef(null);
   const textRef = useRef(null);
@@ -524,12 +524,12 @@ const CinematicAbout = ({ photoSrc }) => {
             transform: photoRevealed
               ? `rotateY(${photoRY}deg) rotateX(${photoRX}deg) translateZ(0px)`
               : 'rotateY(-45deg) rotateX(20deg) translateZ(-300px) translateX(-80px)',
-            opacity: photoRevealed ? 1 : 0,
+            opacity: (photoRevealed && docked) ? 1 : 0,
             transition: hovered
               ? 'transform 0.2s cubic-bezier(0.22,1,0.36,1)'
               : photoRevealed
-                ? 'transform 0.8s cubic-bezier(0.22,1,0.36,1), opacity 0.8s ease'
-                : 'transform 1.2s cubic-bezier(0.22,1,0.36,1), opacity 1s ease',
+                ? 'transform 0.8s cubic-bezier(0.22,1,0.36,1), opacity 0.5s ease-out'
+                : 'transform 1.2s cubic-bezier(0.22,1,0.36,1), opacity 0.5s ease-out',
           }}
         >
           {/* Outer glow ring that tracks the mouse */}
